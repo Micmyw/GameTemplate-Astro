@@ -47,14 +47,66 @@ describe("verifyDist", () => {
     );
   });
 
-  it("accepts a static index page with a title before the 404 task", async () => {
+  it("rejects a build without a 404 page", async () => {
     const distDirectory = await createDist({
       "index.html":
         "<!doctype html><html><head><title>GameSite</title></head><body></body></html>",
     });
 
+    await expect(verifyDist(distDirectory)).rejects.toThrow(
+      "dist/404.html is missing",
+    );
+  });
+
+  it("rejects a 404 page without a title", async () => {
+    const distDirectory = await createDist({
+      "index.html":
+        "<!doctype html><html><head><title>GameSite</title></head><body></body></html>",
+      "404.html":
+        '<!doctype html><html><head><meta name="robots" content="noindex, follow"></head><body></body></html>',
+    });
+
+    await expect(verifyDist(distDirectory)).rejects.toThrow(
+      "dist/404.html must contain a non-empty <title>",
+    );
+  });
+
+  it("rejects a 404 page without noindex", async () => {
+    const distDirectory = await createDist({
+      "index.html":
+        "<!doctype html><html><head><title>GameSite</title></head><body></body></html>",
+      "404.html":
+        "<!doctype html><html><head><title>Page not found</title></head><body></body></html>",
+    });
+
+    await expect(verifyDist(distDirectory)).rejects.toThrow(
+      "dist/404.html must contain noindex",
+    );
+  });
+
+  it("rejects duplicate index and 404 titles", async () => {
+    const distDirectory = await createDist({
+      "index.html":
+        "<!doctype html><html><head><title>GameSite</title></head><body></body></html>",
+      "404.html":
+        '<!doctype html><html><head><title>GameSite</title><meta name="robots" content="noindex, follow"></head><body></body></html>',
+    });
+
+    await expect(verifyDist(distDirectory)).rejects.toThrow(
+      "dist/404.html must use a title distinct from dist/index.html",
+    );
+  });
+
+  it("accepts titled index and noindexed 404 pages", async () => {
+    const distDirectory = await createDist({
+      "index.html":
+        "<!doctype html><html><head><title>GameSite</title></head><body></body></html>",
+      "404.html":
+        '<!doctype html><html><head><title>Page not found</title><meta name="robots" content="noindex, follow"></head><body></body></html>',
+    });
+
     await expect(verifyDist(distDirectory)).resolves.toEqual({
-      checkedFiles: ["index.html"],
+      checkedFiles: ["index.html", "404.html"],
     });
   });
 });
