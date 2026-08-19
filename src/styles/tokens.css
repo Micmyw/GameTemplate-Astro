@@ -1,0 +1,15 @@
+:root {
+  --color-ink: #14213d;
+  --color-ink-soft: #40506d;
+  --color-canvas: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-line: #cfdaea;
+  --color-accent: #2161f5;
+  --color-highlight: #f4c95d;
+  --font-body:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-utility: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --content-width: 70rem;
+  --shadow-window: 0 1.5rem 4rem rgb(31 52 94 / 14%);
+}
