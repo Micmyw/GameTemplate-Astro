@@ -5,12 +5,22 @@ import {
   assertNoSelfReference,
   createCategorySchema,
   createGameSchema,
-  parseAllowedGameOrigins,
 } from "./lib/content-schema";
+import {
+  assertCrossOrigin,
+  DEFAULT_GAME_ORIGIN,
+  parseAllowedGameOrigins,
+} from "./lib/embed-url";
+import { resolveSiteOrigin } from "./lib/site-origin";
 
 const allowedGameOrigins = parseAllowedGameOrigins(
-  process.env.PUBLIC_GAME_ORIGINS ?? "https://play.example.com",
+  import.meta.env.PUBLIC_GAME_ORIGINS ?? DEFAULT_GAME_ORIGIN,
 );
+const siteOrigin = resolveSiteOrigin(import.meta.env.PUBLIC_SITE_URL);
+
+for (const gameOrigin of allowedGameOrigins) {
+  assertCrossOrigin(gameOrigin, siteOrigin);
+}
 
 const createValidatedGameLoader = (): Loader => {
   const loader = glob({
@@ -40,6 +50,7 @@ const games = defineCollection({
       categoryReferenceSchema: reference("categories"),
       gameReferenceSchema: reference("games"),
       allowedOrigins: allowedGameOrigins,
+      siteOrigin,
     }),
 });
 

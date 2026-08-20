@@ -1,5 +1,7 @@
 import { z } from "astro/zod";
 
+import { assertCrossOrigin, validateEmbedUrl } from "./embed-url";
+
 type ReferenceLike = string | { id?: string; slug?: string };
 
 type GameSchemaOptions<
@@ -10,7 +12,8 @@ type GameSchemaOptions<
   imageSchema: TImageSchema;
   categoryReferenceSchema: TCategoryReferenceSchema;
   gameReferenceSchema: TGameReferenceSchema;
-  allowedOrigins: ReadonlySet<string>;
+  allowedOrigins: readonly URL[];
+  siteOrigin: URL;
   entryId?: string;
 };
 
@@ -30,32 +33,6 @@ const referenceId = (reference: unknown): string | undefined => {
   return undefined;
 };
 
-export const parseAllowedGameOrigins = (raw: string): ReadonlySet<string> => {
-  const origins = raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .map((value) => {
-      const url = new URL(value);
-
-      if (url.protocol !== "https:" || url.origin !== value) {
-        throw new Error(
-          `PUBLIC_GAME_ORIGINS entries must be HTTPS origins: ${value}`,
-        );
-      }
-
-      return url.origin;
-    });
-
-  if (origins.length === 0) {
-    throw new Error(
-      "PUBLIC_GAME_ORIGINS must contain at least one HTTPS origin",
-    );
-  }
-
-  return new Set(origins);
-};
-
 export const assertNoSelfReference = (
   entryId: string,
   relatedGames: readonly unknown[],
@@ -65,34 +42,69 @@ export const assertNoSelfReference = (
   }
 };
 
-const createEmbedUrlSchema = (allowedOrigins: ReadonlySet<string>) =>
-  z.url().superRefine((raw, context) => {
-    const url = new URL(raw);
-
-    if (url.protocol !== "https:") {
-      context.addIssue({ code: "custom", message: "embedUrl must use HTTPS" });
-    }
-
-    if (!allowedOrigins.has(url.origin)) {
+const createEmbedUrlSchema = (
+  allowedOrigins: readonly URL[],
+  siteOrigin: URL,
+) =>
+  z.string().transform((raw, context) => {
+    try {
+      return assertCrossOrigin(
+        validateEmbedUrl(raw, allowedOrigins),
+        siteOrigin,
+      ).href;
+    } catch (error) {
       context.addIssue({
         code: "custom",
-        message: `embedUrl origin is not allowed: ${url.origin}`,
+        message:
+          error instanceof Error ? error.message : "embedUrl is not valid",
       });
+      return z.NEVER;
     }
+  });
 
-    if (url.username || url.password || url.hash) {
+const greatestCommonDivisor = (left: bigint, right: bigint): bigint => {
+  let a = left;
+  let b = right;
+
+  while (b !== 0n) {
+    const remainder = a % b;
+    a = b;
+    b = remainder;
+  }
+
+  return a;
+};
+
+const aspectRatioSchema = z
+  .string()
+  .trim()
+  .transform((raw, context) => {
+    const match = /^(\d+)\/(\d+)$/.exec(raw);
+
+    const numeratorValue = match?.[1];
+    const denominatorValue = match?.[2];
+
+    if (!numeratorValue || !denominatorValue) {
       context.addIssue({
         code: "custom",
-        message: "embedUrl cannot contain credentials or a fragment",
+        message: "aspectRatio must contain two positive integers",
       });
+      return z.NEVER;
     }
 
-    if (!url.pathname.endsWith("/")) {
+    const numerator = BigInt(numeratorValue);
+    const denominator = BigInt(denominatorValue);
+
+    if (numerator <= 0n || denominator <= 0n) {
       context.addIssue({
         code: "custom",
-        message: "embedUrl path must end with a trailing slash",
+        message: "aspectRatio values must be greater than zero",
       });
+      return z.NEVER;
     }
+
+    const divisor = greatestCommonDivisor(numerator, denominator);
+    return `${numerator / divisor}/${denominator / divisor}`;
   });
 
 export const createGameSchema = <
@@ -104,6 +116,7 @@ export const createGameSchema = <
   categoryReferenceSchema,
   gameReferenceSchema,
   allowedOrigins,
+  siteOrigin,
   entryId,
 }: GameSchemaOptions<
   TImageSchema,
@@ -126,7 +139,7 @@ export const createGameSchema = <
           }),
         )
         .max(8),
-      embedUrl: createEmbedUrlSchema(allowedOrigins),
+      embedUrl: createEmbedUrlSchema(allowedOrigins, siteOrigin),
       categories: z.array(categoryReferenceSchema).min(1),
       tags: z.array(trimmedString(1, 40)).max(12),
       controls: z
@@ -141,7 +154,7 @@ export const createGameSchema = <
       mobileSupport: z.enum(["yes", "no", "partial"]),
       orientation: z.enum(["landscape", "portrait", "both"]),
       loadMode: z.enum(["click", "eager"]),
-      aspectRatio: z.string().regex(/^\d+\/\d+$/),
+      aspectRatio: aspectRatioSchema,
       status: z.enum(["draft", "published"]),
       publishedAt: z.coerce.date(),
       updatedAt: z.coerce.date(),
