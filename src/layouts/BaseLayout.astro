@@ -59,6 +59,7 @@ const socialImage = absoluteUrl(imagePath);
     <link rel="icon" href={absoluteUrl("/favicon.ico")} />
     <meta name="generator" content={Astro.generator} />
     <title>{finalTitle}</title>
+    <slot name="head" />
   </head>
   <body>
     <Header />

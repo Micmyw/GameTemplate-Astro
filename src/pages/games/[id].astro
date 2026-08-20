@@ -4,11 +4,12 @@ import { render, type CollectionEntry } from "astro:content";
 
 import GameControls from "../../components/games/GameControls.astro";
 import RelatedGames from "../../components/games/RelatedGames.astro";
-import { SITE } from "../../config/site";
+import JsonLd from "../../components/seo/JsonLd.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPopulatedPublishedCategories } from "../../lib/content/categories";
 import { getPublishedGames } from "../../lib/content/games";
 import { rankRelatedGames } from "../../lib/related-games";
+import { buildBreadcrumbJsonLd, buildGameJsonLd } from "../../lib/seo";
 
 export async function getStaticPaths() {
   const games = await getPublishedGames();
@@ -29,13 +30,27 @@ const categoryNames = new Map(
   categories.map((category) => [category.id, category.data.name]),
 );
 const relatedGames = rankRelatedGames(game, await getPublishedGames());
+const pagePath = `/games/${game.id}/`;
+const gameJsonLd = buildGameJsonLd(game, categories);
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: "Games", path: "/games/" },
+  { name: game.data.title, path: pagePath },
+]);
 ---
 
 <BaseLayout
-  title={`${game.data.seoTitle} | ${SITE.name}`}
+  title={game.data.seoTitle}
   description={game.data.seoDescription}
-  canonicalPath={`/games/${game.id}/`}
+  canonicalPath={pagePath}
+  image={game.data.coverImage}
+  ogType="article"
 >
+  <Fragment slot="head">
+    <JsonLd data={gameJsonLd} />
+    <JsonLd data={breadcrumbJsonLd} />
+  </Fragment>
+
   <article class="shell game-detail">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="/">Home</a>
