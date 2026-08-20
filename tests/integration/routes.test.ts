@@ -1,13 +1,13 @@
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import {
+  htmlFileToRoute,
+  internalLinkPath,
+  listHtmlFiles,
+} from "../../scripts/verify-dist.mjs";
 
 const projectRoot = resolve(import.meta.dirname, "../..");
 const distRoot = resolve(projectRoot, "dist");
@@ -62,13 +62,8 @@ const routePath = (route: keyof typeof routeFiles) =>
 const readRoute = (route: keyof typeof routeFiles) =>
   readFileSync(routePath(route), "utf8");
 
-const listHtmlFiles = (directory = distRoot): string[] =>
-  readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = resolve(directory, entry.name);
-
-    if (entry.isDirectory()) return listHtmlFiles(path);
-    return entry.isFile() && entry.name.endsWith(".html") ? [path] : [];
-  });
+const outputFilePath = (file: string): string =>
+  resolve(distRoot, ...file.split("/"));
 
 const buildSite = (siteName?: string) => {
   if (!npmCli) {
@@ -139,31 +134,28 @@ describe("static route generation", () => {
     }
   });
 
-  it("resolves every internal anchor to a generated HTML file", () => {
-    for (const htmlFile of listHtmlFiles()) {
+  it("resolves every internal anchor to a generated HTML file", async () => {
+    const htmlFiles = await listHtmlFiles(distRoot);
+    const generatedRoutes = new Set(htmlFiles.map(htmlFileToRoute));
+
+    for (const file of htmlFiles) {
+      const htmlFile = outputFilePath(file);
       const html = readFileSync(htmlFile, "utf8");
       const anchors = [...html.matchAll(/<a\b[^>]*href="([^"]+)"/g)];
+      const pageUrl = new URL(htmlFileToRoute(file), "https://example.test")
+        .href;
 
       for (const [, href] of anchors) {
-        if (
-          !href ||
-          href.startsWith("#") ||
-          !href.startsWith("/") ||
-          href.startsWith("//")
-        ) {
-          continue;
-        }
-
-        const pathname = new URL(href, "https://example.test").pathname;
-        const target =
-          pathname === "/"
-            ? resolve(distRoot, "index.html")
-            : pathname === "/404.html"
-              ? resolve(distRoot, "404.html")
-              : resolve(distRoot, pathname.slice(1), "index.html");
+        if (!href) continue;
+        const pathname = internalLinkPath(
+          href,
+          pageUrl,
+          "https://example.test",
+        );
+        if (!pathname) continue;
 
         expect(
-          existsSync(target),
+          generatedRoutes.has(pathname),
           `${relative(projectRoot, htmlFile)} -> ${href}`,
         ).toBe(true);
       }
@@ -212,9 +204,9 @@ describe("static route generation", () => {
     expect(publicHtml).not.toContain("/games/obstacle-orbit/");
   });
 
-  it("omits empty and draft categories while keeping populated categories", () => {
-    const publicHtml = listHtmlFiles()
-      .map((file) => readFileSync(file, "utf8"))
+  it("omits empty and draft categories while keeping populated categories", async () => {
+    const publicHtml = (await listHtmlFiles(distRoot))
+      .map((file) => readFileSync(outputFilePath(file), "utf8"))
       .join("\n");
 
     expect(
