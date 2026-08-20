@@ -15,6 +15,7 @@ import {
 import {
   getCategoryById,
   getGamesForCategory,
+  getPopulatedPublishedCategories,
   getPublishedCategories,
 } from "../../src/lib/content/categories";
 
@@ -59,7 +60,6 @@ const game = (
       tags: ["rolling"],
       controls: [{ input: "Arrow keys", action: "Steer" }],
       featured: options.featured ?? false,
-      indexable: options.status !== "draft",
       mobileSupport: "yes",
       orientation: "landscape",
       loadMode: "click",
@@ -113,8 +113,10 @@ const games = [
 ];
 
 const categories = [
+  category("ball-games", 5),
   category("zeta-category", 10),
   category("alpha-category", 10),
+  category("skill-games", 15),
   category("later-category", 20),
   category("draft-category", 1, "draft"),
 ];
@@ -152,9 +154,25 @@ describe("category content queries", () => {
     const result = await getPublishedCategories();
 
     expect(result.map(({ id }) => id)).toEqual([
+      "ball-games",
       "alpha-category",
       "zeta-category",
+      "skill-games",
       "later-category",
+    ]);
+  });
+
+  it("returns only published categories populated by published games", async () => {
+    const result = await getPopulatedPublishedCategories();
+
+    expect(
+      result.map(({ category: entry, games: categoryGames }) => ({
+        id: entry.id,
+        games: categoryGames.map(({ id }) => id),
+      })),
+    ).toEqual([
+      { id: "ball-games", games: ["alpha", "zeta"] },
+      { id: "skill-games", games: ["older"] },
     ]);
   });
 

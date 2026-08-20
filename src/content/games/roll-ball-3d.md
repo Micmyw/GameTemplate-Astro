@@ -21,7 +21,6 @@ controls:
   - input: "Short reverse input"
     action: "Reduce drift before landing on a small platform"
 featured: true
-indexable: true
 mobileSupport: "partial"
 orientation: "landscape"
 loadMode: "click"

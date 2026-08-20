@@ -1,10 +1,11 @@
 ---
+import { SITE } from "../config/site";
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
-  title="About this game catalogue | GameSite"
-  description="Learn how GameSite organizes focused browser game guides and keeps published pages useful before a game starts."
+  title={`About this game catalogue | ${SITE.name}`}
+  description={`Learn how ${SITE.name} organizes focused browser game guides and keeps published pages useful before a game starts.`}
   canonicalPath="/about/"
 >
   <article class="shell text-page">
@@ -12,9 +13,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <p class="eyebrow">About the catalogue</p>
       <h1>Useful context before play begins.</h1>
       <p class="lede">
-        GameSite is a small, editorially organized catalogue for browser games.
-        Each published route explains the objective, controls, and device fit
-        directly on the page.
+        {SITE.name} is a small, editorially organized catalogue for browser games.
+        Each published route explains the objective, controls, and device fit directly
+        on the page.
       </p>
     </header>
 

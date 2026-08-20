@@ -1,10 +1,11 @@
 ---
+import { SITE } from "../config/site";
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
-  title="Terms of use | GameSite"
-  description="Foundation terms describing acceptable use of the current free, static GameSite catalogue."
+  title={`Terms of use | ${SITE.name}`}
+  description={`Foundation terms describing acceptable use of the current free, static ${SITE.name} catalogue.`}
   canonicalPath="/terms/"
 >
   <article class="shell text-page legal-page">
@@ -20,9 +21,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <section>
       <h2>The current service</h2>
       <p>
-        GameSite currently provides free, static game guides without accounts,
-        payments, user submissions, or a game player. Pages may change as the
-        catalogue is reviewed and expanded.
+        {SITE.name} currently provides free, static game guides without accounts,
+        payments, user submissions, or a game player. Pages may change as the catalogue
+        is reviewed and expanded.
       </p>
     </section>
 

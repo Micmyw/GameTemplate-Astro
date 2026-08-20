@@ -1,10 +1,11 @@
 ---
+import { SITE } from "../config/site";
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
-  title="Page not found | GameSite"
-  description="The requested GameSite route could not be found."
+  title={`Page not found | ${SITE.name}`}
+  description={`The requested ${SITE.name} route could not be found.`}
   canonicalPath="/404.html"
   robots="noindex, follow"
 >

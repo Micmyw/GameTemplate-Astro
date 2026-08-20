@@ -138,7 +138,6 @@ export const createGameSchema = <
         )
         .min(1),
       featured: z.boolean(),
-      indexable: z.boolean(),
       mobileSupport: z.enum(["yes", "no", "partial"]),
       orientation: z.enum(["landscape", "portrait", "both"]),
       loadMode: z.enum(["click", "eager"]),

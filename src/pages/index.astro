@@ -1,19 +1,21 @@
 ---
 import GameCard from "../components/games/GameCard.astro";
+import { SITE } from "../config/site";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { getPublishedCategories } from "../lib/content/categories";
+import { getPopulatedPublishedCategories } from "../lib/content/categories";
 import { getFeaturedGames, getPublishedGames } from "../lib/content/games";
 
 const games = await getPublishedGames();
 const featuredGames = await getFeaturedGames(2);
-const categories = await getPublishedCategories();
+const populatedCategories = await getPopulatedPublishedCategories();
+const categories = populatedCategories.map(({ category }) => category);
 const categoryNames = new Map(
   categories.map((category) => [category.id, category.data.name]),
 );
 ---
 
 <BaseLayout
-  title="GameSite | Focused browser game guides"
+  title={`${SITE.name} | Focused browser game guides`}
   description="Discover a focused collection of browser games with clear controls, mobile notes, and useful play guides."
   canonicalPath="/"
 >

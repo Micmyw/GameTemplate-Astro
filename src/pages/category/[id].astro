@@ -2,27 +2,17 @@
 import type { CollectionEntry } from "astro:content";
 
 import GameCard from "../../components/games/GameCard.astro";
+import { SITE } from "../../config/site";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import {
-  getGamesForCategory,
-  getPublishedCategories,
-} from "../../lib/content/categories";
+import { getPopulatedPublishedCategories } from "../../lib/content/categories";
 
 export async function getStaticPaths() {
-  const categories = await getPublishedCategories();
-  const paths = await Promise.all(
-    categories.map(async (category) => ({
-      category,
-      games: await getGamesForCategory(category.id),
-    })),
-  );
+  const categories = await getPopulatedPublishedCategories();
 
-  return paths
-    .filter(({ games }) => games.length > 0)
-    .map(({ category, games }) => ({
-      params: { id: category.id },
-      props: { category, games },
-    }));
+  return categories.map(({ category, games }) => ({
+    params: { id: category.id },
+    props: { category, games },
+  }));
 }
 
 type Props = {
@@ -32,12 +22,15 @@ type Props = {
 
 const { category, games } = Astro.props;
 const categoryNames = new Map(
-  (await getPublishedCategories()).map((entry) => [entry.id, entry.data.name]),
+  (await getPopulatedPublishedCategories()).map(({ category: entry }) => [
+    entry.id,
+    entry.data.name,
+  ]),
 );
 ---
 
 <BaseLayout
-  title={`${category.data.seoTitle} | GameSite`}
+  title={`${category.data.seoTitle} | ${SITE.name}`}
   description={category.data.seoDescription}
   canonicalPath={`/category/${category.id}/`}
 >

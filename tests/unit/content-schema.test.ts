@@ -35,7 +35,6 @@ const validGame = {
     },
   ],
   featured: true,
-  indexable: true,
   mobileSupport: "yes" as const,
   orientation: "landscape" as const,
   loadMode: "click" as const,

@@ -4,8 +4,9 @@ import { render, type CollectionEntry } from "astro:content";
 
 import GameControls from "../../components/games/GameControls.astro";
 import RelatedGames from "../../components/games/RelatedGames.astro";
+import { SITE } from "../../config/site";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPublishedCategories } from "../../lib/content/categories";
+import { getPopulatedPublishedCategories } from "../../lib/content/categories";
 import { getPublishedGames } from "../../lib/content/games";
 import { rankRelatedGames } from "../../lib/related-games";
 
@@ -21,7 +22,9 @@ type Props = {
 
 const { game } = Astro.props;
 const { Content } = await render(game);
-const categories = await getPublishedCategories();
+const categories = (await getPopulatedPublishedCategories()).map(
+  ({ category }) => category,
+);
 const categoryNames = new Map(
   categories.map((category) => [category.id, category.data.name]),
 );
@@ -29,7 +32,7 @@ const relatedGames = rankRelatedGames(game, await getPublishedGames());
 ---
 
 <BaseLayout
-  title={`${game.data.seoTitle} | GameSite`}
+  title={`${game.data.seoTitle} | ${SITE.name}`}
   description={game.data.seoDescription}
   canonicalPath={`/games/${game.id}/`}
 >

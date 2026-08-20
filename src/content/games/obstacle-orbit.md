@@ -21,7 +21,6 @@ controls:
   - input: "Hold no input"
     action: "Remain in the current lane and watch the next barrier"
 featured: false
-indexable: false
 mobileSupport: "yes"
 orientation: "both"
 loadMode: "click"

@@ -22,7 +22,6 @@ controls:
   - input: "Release the direction key"
     action: "Center the ball before a narrow section"
 featured: true
-indexable: true
 mobileSupport: "yes"
 orientation: "landscape"
 loadMode: "click"

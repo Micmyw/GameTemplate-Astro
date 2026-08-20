@@ -1,6 +1,6 @@
-import { getCollection, type CollectionEntry } from "astro:content";
+import { getValidatedCatalog, type GameEntry } from "./catalog";
 
-export type GameEntry = CollectionEntry<"games">;
+export type { GameEntry } from "./catalog";
 
 export const compareGames = (left: GameEntry, right: GameEntry): number => {
   const dateDifference =
@@ -9,12 +9,15 @@ export const compareGames = (left: GameEntry, right: GameEntry): number => {
   return dateDifference || left.id.localeCompare(right.id);
 };
 
-export const getPublishedGames = async (): Promise<GameEntry[]> => {
-  const games = await getCollection("games");
+export const selectPublishedGames = (
+  games: readonly GameEntry[],
+): GameEntry[] =>
+  games.filter((game) => game.data.status === "published").sort(compareGames);
 
-  return games
-    .filter((game) => game.data.status === "published" && game.data.indexable)
-    .sort(compareGames);
+export const getPublishedGames = async (): Promise<GameEntry[]> => {
+  const { games } = await getValidatedCatalog();
+
+  return selectPublishedGames(games);
 };
 
 export const getFeaturedGames = async (

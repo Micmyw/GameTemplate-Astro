@@ -42,7 +42,6 @@ const game = (
       tags: options.tags ?? [],
       controls: [{ input: "Arrow keys", action: "Steer" }],
       featured: false,
-      indexable: options.status !== "draft",
       mobileSupport: "yes",
       orientation: "landscape",
       loadMode: "click",

@@ -1,19 +1,22 @@
 ---
 import GameCard from "../../components/games/GameCard.astro";
+import { SITE } from "../../config/site";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPublishedCategories } from "../../lib/content/categories";
+import { getPopulatedPublishedCategories } from "../../lib/content/categories";
 import { getPublishedGames } from "../../lib/content/games";
 
 const games = await getPublishedGames();
-const categories = await getPublishedCategories();
+const categories = (await getPopulatedPublishedCategories()).map(
+  ({ category }) => category,
+);
 const categoryNames = new Map(
   categories.map((category) => [category.id, category.data.name]),
 );
 ---
 
 <BaseLayout
-  title="All browser games | GameSite"
-  description="Browse every published game in the GameSite catalogue with clear summaries and category links."
+  title={`All browser games | ${SITE.name}`}
+  description={`Browse every published game in the ${SITE.name} catalogue with clear summaries and category links.`}
   canonicalPath="/games/"
 >
   <header class="shell page-hero">
