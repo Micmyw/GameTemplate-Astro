@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title description">
+  <title id="title">Going Balls placeholder cover</title>
+  <desc id="description">A blue ball on a winding suspended course.</desc>
+  <rect width="640" height="480" fill="#dce8ef" />
+  <path d="M36 392h182l70-92h142l64-126h110" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="70" />
+  <path d="M36 392h182l70-92h142l64-126h110" fill="none" stroke="#355b70" stroke-linecap="round" stroke-width="8" />
+  <circle cx="205" cy="378" r="42" fill="#1677a7" />
+  <circle cx="190" cy="362" r="12" fill="#8fd4ed" />
+  <path d="M384 263v-94M432 263v-94" stroke="#d45c3c" stroke-width="18" />
+</svg>

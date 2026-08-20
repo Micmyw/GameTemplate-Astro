@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title description">
+  <title id="title">Roll Ball 3D placeholder cover</title>
+  <desc id="description">An orange ball approaching two elevated lanes.</desc>
+  <rect width="640" height="480" fill="#efe5d6" />
+  <path d="M56 405h194l70-94 70-138h190" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="62" />
+  <path d="M56 405h194l70-94 70-138h190" fill="none" stroke="#5d5448" stroke-linecap="round" stroke-width="7" />
+  <path d="M315 309l82-74M315 309l27-107" fill="none" stroke="#5d5448" stroke-width="7" />
+  <circle cx="224" cy="387" r="42" fill="#d66d32" />
+  <circle cx="209" cy="371" r="12" fill="#ffd095" />
+</svg>
