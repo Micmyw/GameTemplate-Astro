@@ -1,38 +1,65 @@
 ---
+import type { ImageMetadata } from "astro";
+
 import Footer from "../components/layout/Footer.astro";
 import Header from "../components/layout/Header.astro";
 import { SITE } from "../config/site";
+import { buildPageTitle } from "../lib/seo";
+import { absoluteUrl } from "../lib/urls";
 import "../styles/global.css";
 
 type Props = {
   title: string;
   description: string;
   canonicalPath: string;
-  image?: string;
+  image?: string | ImageMetadata;
   robots?: string;
+  ogType?: "website" | "article";
 };
 
 const {
   title,
   description,
   canonicalPath,
+  image = SITE.socialImage,
   robots = "index, follow",
+  ogType = "website",
 } = Astro.props;
-const canonical = new URL(canonicalPath, SITE.url).toString();
+const normalizedDescription = description.trim();
+
+if (!normalizedDescription) {
+  throw new Error("Page description must not be empty");
+}
+
+const finalTitle = buildPageTitle(title);
+const canonical = absoluteUrl(canonicalPath);
+const imagePath = typeof image === "string" ? image : image.src;
+const socialImage = absoluteUrl(imagePath);
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={normalizedDescription} />
     <meta name="robots" content={robots} />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={finalTitle} />
+    <meta property="og:description" content={normalizedDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={finalTitle} />
+    <meta name="twitter:description" content={normalizedDescription} />
+    <meta name="twitter:image" content={socialImage} />
+    <link rel="icon" type="image/svg+xml" href={absoluteUrl("/favicon.svg")} />
+    <link rel="icon" href={absoluteUrl("/favicon.ico")} />
     <meta name="generator" content={Astro.generator} />
-    <title>{title}</title>
+    <title>{finalTitle}</title>
+    <slot name="head" />
   </head>
   <body>
     <Header />

@@ -2,9 +2,14 @@
 import type { CollectionEntry } from "astro:content";
 
 import GameCard from "../../components/games/GameCard.astro";
-import { SITE } from "../../config/site";
+import JsonLd from "../../components/seo/JsonLd.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPopulatedPublishedCategories } from "../../lib/content/categories";
+import {
+  buildBreadcrumbJsonLd,
+  buildCollectionPageJsonLd,
+  buildItemListJsonLd,
+} from "../../lib/seo";
 
 export async function getStaticPaths() {
   const categories = await getPopulatedPublishedCategories();
@@ -27,13 +32,35 @@ const categoryNames = new Map(
     entry.data.name,
   ]),
 );
+const pagePath = `/category/${category.id}/`;
+const collectionPageJsonLd = buildCollectionPageJsonLd({
+  name: category.data.name,
+  description: category.data.seoDescription,
+  path: pagePath,
+});
+const itemListJsonLd = buildItemListJsonLd(
+  games.map((game) => ({
+    name: game.data.title,
+    path: `/games/${game.id}/`,
+  })),
+);
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: category.data.name, path: pagePath },
+]);
 ---
 
 <BaseLayout
-  title={`${category.data.seoTitle} | ${SITE.name}`}
+  title={category.data.seoTitle}
   description={category.data.seoDescription}
-  canonicalPath={`/category/${category.id}/`}
+  canonicalPath={pagePath}
 >
+  <Fragment slot="head">
+    <JsonLd data={collectionPageJsonLd} />
+    {itemListJsonLd && <JsonLd data={itemListJsonLd} />}
+    <JsonLd data={breadcrumbJsonLd} />
+  </Fragment>
+
   <header class="shell page-hero category-hero">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="/">Home</a>
