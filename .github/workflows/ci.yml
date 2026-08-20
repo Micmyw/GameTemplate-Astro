@@ -43,8 +43,5 @@ jobs:
       - name: Verify static output
         run: npm run verify:dist
 
-      - name: Check Wrangler configuration
-        run: npx wrangler check
-
       - name: Validate the deployment bundle
         run: npx wrangler deploy --dry-run

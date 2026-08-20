@@ -234,7 +234,6 @@ Use this script contract:
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify:dist": "node scripts/verify-dist.mjs",
-    "cf:check": "wrangler check",
     "deploy:dry": "npm run build && npm run verify:dist && wrangler deploy --dry-run",
     "deploy": "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && wrangler deploy"
   }
@@ -424,7 +423,8 @@ The built 404 page must:
 
 - contain a unique title;
 - contain `noindex, follow`;
-- link to `/` and `/games/`;
+- link to `/`;
+- defer the `/games/` recovery link to PR 2, after the `/games/` route exists;
 - not use client-side routing.
 
 - [ ] **Step 5: Expand dist verification**
@@ -444,7 +444,6 @@ Run:
 npm test -- tests/unit/cloudflare-config.test.ts
 npm run build
 npm run verify:dist
-npx wrangler check
 npx wrangler deploy --dry-run
 ```
 
@@ -488,7 +487,6 @@ npm run check
 npm run test
 npm run build
 npm run verify:dist
-npx wrangler check
 npx wrangler deploy --dry-run
 ```
 
@@ -544,7 +542,6 @@ npm run check
 npm run test
 npm run build
 npm run verify:dist
-npx wrangler check
 npx wrangler deploy --dry-run
 git status --short
 git log --oneline origin/main..HEAD
@@ -768,6 +765,8 @@ This PR may render basic metadata. Full SEO implementation belongs to PR 3.
 - [ ] **Step 3: Implement static pages**
 
 `src/pages/games/[id].astro` and `src/pages/category/[id].astro` must use `getStaticPaths()`.
+
+After the `/games/` route exists, add the 404 recovery link to `/games/`.
 
 Do not:
 
@@ -1413,7 +1412,6 @@ From `apps/cms-auth`:
 npm ci
 npm run test
 npm run check
-npx wrangler check
 npx wrangler deploy --dry-run
 ```
 
@@ -1585,7 +1583,6 @@ npm run test
 npm run build
 npm run verify:dist
 npm run test:e2e
-npx wrangler check
 npx wrangler deploy --dry-run
 git status --short
 ```

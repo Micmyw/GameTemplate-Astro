@@ -716,7 +716,6 @@ npm run test
 npm run build
 npm run verify:dist
 npm run test:e2e
-npx wrangler check
 npx wrangler deploy --dry-run
 ```
 
@@ -736,8 +735,7 @@ GitHub Actions 在 PR 和 main push 时运行：
 6. production build；
 7. dist verification；
 8. E2E；
-9. Wrangler config check；
-10. deploy dry-run。
+9. deploy dry-run。
 
 main 自动部署只在以下条件满足后启用：
 

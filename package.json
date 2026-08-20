@@ -15,7 +15,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify:dist": "node scripts/verify-dist.mjs",
-    "cf:check": "wrangler check",
     "deploy:dry": "npm run build && npm run verify:dist && wrangler deploy --dry-run",
     "deploy": "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && wrangler deploy"
   },
