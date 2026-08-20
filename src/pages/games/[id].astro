@@ -1,0 +1,109 @@
+---
+import { Image } from "astro:assets";
+import { render, type CollectionEntry } from "astro:content";
+
+import GameControls from "../../components/games/GameControls.astro";
+import RelatedGames from "../../components/games/RelatedGames.astro";
+import { SITE } from "../../config/site";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPopulatedPublishedCategories } from "../../lib/content/categories";
+import { getPublishedGames } from "../../lib/content/games";
+import { rankRelatedGames } from "../../lib/related-games";
+
+export async function getStaticPaths() {
+  const games = await getPublishedGames();
+
+  return games.map((game) => ({ params: { id: game.id }, props: { game } }));
+}
+
+type Props = {
+  game: CollectionEntry<"games">;
+};
+
+const { game } = Astro.props;
+const { Content } = await render(game);
+const categories = (await getPopulatedPublishedCategories()).map(
+  ({ category }) => category,
+);
+const categoryNames = new Map(
+  categories.map((category) => [category.id, category.data.name]),
+);
+const relatedGames = rankRelatedGames(game, await getPublishedGames());
+---
+
+<BaseLayout
+  title={`${game.data.seoTitle} | ${SITE.name}`}
+  description={game.data.seoDescription}
+  canonicalPath={`/games/${game.id}/`}
+>
+  <article class="shell game-detail">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href="/games/">Games</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{game.data.title}</span>
+    </nav>
+
+    <header class="game-detail-header">
+      <div>
+        <p class="eyebrow">Playable route profile</p>
+        <h1>{game.data.title}</h1>
+        <p class="lede">{game.data.shortDescription}</p>
+        <div class="tag-row" aria-label="Game tags">
+          {game.data.tags.map((tag) => <span>{tag}</span>)}
+        </div>
+      </div>
+      <figure class="detail-cover">
+        <Image
+          src={game.data.coverImage}
+          alt={game.data.coverAlt}
+          width={640}
+          height={480}
+        />
+      </figure>
+    </header>
+
+    <section class="player-placeholder" aria-labelledby="player-heading">
+      <div class="player-route" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div>
+        <p class="section-label">Game player</p>
+        <h2 id="player-heading">Player coming in a later release</h2>
+        <p>
+          This reserved area keeps the future game frame stable. No game or
+          external embed loads in this release.
+        </p>
+      </div>
+    </section>
+
+    <div class="game-info-strip" aria-label="Game information">
+      <div><span>Mobile</span><strong>{game.data.mobileSupport}</strong></div>
+      <div>
+        <span>Orientation</span><strong>{game.data.orientation}</strong>
+      </div>
+      <div>
+        <span>Categories</span>
+        <div>
+          {
+            game.data.categories.map((category) => (
+              <a href={`/category/${category.id}/`}>
+                {categoryNames.get(category.id) ?? category.id}
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+
+    <section class="detail-section game-copy" aria-labelledby="guide-heading">
+      <p class="section-label">Play guide</p>
+      <h2 id="guide-heading">How this game works</h2>
+      <div class="prose"><Content /></div>
+    </section>
+
+    <GameControls controls={game.data.controls} />
+    <RelatedGames games={relatedGames} categoryNames={categoryNames} />
+  </article>
+</BaseLayout>

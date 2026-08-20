@@ -1,0 +1,30 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+import GameCard from "./GameCard.astro";
+
+type Props = {
+  games: CollectionEntry<"games">[];
+  categoryNames: ReadonlyMap<string, string>;
+};
+
+const { games, categoryNames } = Astro.props;
+---
+
+{
+  games.length > 0 && (
+    <section class="detail-section" aria-labelledby="related-heading">
+      <p class="section-label">Continue exploring</p>
+      <h2 id="related-heading">Related games</h2>
+      <div class="game-grid game-grid-related">
+        {games.map((game) => (
+          <GameCard
+            game={game}
+            categoryNames={categoryNames}
+            headingLevel="h3"
+          />
+        ))}
+      </div>
+    </section>
+  )
+}

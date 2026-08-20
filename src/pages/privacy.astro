@@ -1,0 +1,72 @@
+---
+import { SITE } from "../config/site";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title={`Privacy notice | ${SITE.name}`}
+  description={`A plain-language overview of the data practices in the current static ${SITE.name} release.`}
+  canonicalPath="/privacy/"
+>
+  <article class="shell text-page legal-page">
+    <header>
+      <p class="eyebrow">Foundation privacy notice</p>
+      <h1>Privacy</h1>
+      <p class="lede">
+        Last updated August 20, 2026. This notice describes the current static
+        catalogue, not features planned for later releases.
+      </p>
+    </header>
+
+    <section>
+      <h2>What this site does</h2>
+      <p>
+        {SITE.name} publishes browser game descriptions, control notes, and category
+        links. No account, payment, upload, contact form, analytics service, advertising
+        system, or embedded game player is active in this release.
+      </p>
+    </section>
+
+    <section>
+      <h2>Information we do not collect</h2>
+      <p>
+        The application does not request names, email addresses, passwords,
+        payment information, precise location, prompts, or uploaded files. It
+        does not set application cookies or use information for AI training.
+      </p>
+    </section>
+
+    <section>
+      <h2>Hosting records</h2>
+      <p>
+        A future hosting provider may process ordinary network information such
+        as an IP address, request time, requested path, and browser details to
+        deliver and secure the site. The production provider and retention
+        details must be added here before launch.
+      </p>
+    </section>
+
+    <section>
+      <h2>Cookies and third parties</h2>
+      <p>
+        There are currently no application cookies, analytics cookies,
+        advertising cookies, third-party game frames, or cross-site tracking
+        scripts. This notice must be updated before any such service is enabled.
+      </p>
+    </section>
+
+    <section>
+      <h2>Your choices and contact</h2>
+      <p>
+        Because this release collects no form or account data, there is no
+        profile to access or delete. The operator identity, privacy contact, and
+        applicable regional details must be published before production launch.
+      </p>
+    </section>
+
+    <aside class="notice-box">
+      This foundation notice is not legal advice. It requires review and final
+      operator details before the site is launched.
+    </aside>
+  </article>
+</BaseLayout>

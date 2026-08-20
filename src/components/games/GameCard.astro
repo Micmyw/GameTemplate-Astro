@@ -1,0 +1,39 @@
+---
+import { Image } from "astro:assets";
+import type { CollectionEntry } from "astro:content";
+
+type Props = {
+  game: CollectionEntry<"games">;
+  categoryNames: ReadonlyMap<string, string>;
+  headingLevel?: "h2" | "h3";
+};
+
+const { game, categoryNames, headingLevel = "h2" } = Astro.props;
+const Heading = headingLevel;
+---
+
+<article class="game-card">
+  <a class="game-card-cover" href={`/games/${game.id}/`} tabindex="-1">
+    <Image
+      src={game.data.coverImage}
+      alt={game.data.coverAlt}
+      width={640}
+      height={480}
+    />
+  </a>
+  <div class="game-card-body">
+    <div class="game-card-meta">
+      {
+        game.data.categories.map((category) => (
+          <a href={`/category/${category.id}/`}>
+            {categoryNames.get(category.id) ?? category.id}
+          </a>
+        ))
+      }
+    </div>
+    <Heading class="game-card-title">
+      <a href={`/games/${game.id}/`}>{game.data.title}</a>
+    </Heading>
+    <p>{game.data.shortDescription}</p>
+  </div>
+</article>

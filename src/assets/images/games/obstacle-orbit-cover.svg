@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title description">
+  <title id="title">Obstacle Orbit placeholder cover</title>
+  <desc id="description">A violet ball moving around a circular obstacle track.</desc>
+  <rect width="640" height="480" fill="#e8e1ef" />
+  <circle cx="320" cy="240" r="150" fill="none" stroke="#ffffff" stroke-width="68" />
+  <circle cx="320" cy="240" r="150" fill="none" stroke="#54455f" stroke-width="7" />
+  <circle cx="445" cy="326" r="38" fill="#7652a8" />
+  <circle cx="432" cy="312" r="10" fill="#c9b6e9" />
+  <path d="M196 125l62 62M420 102l-42 74M188 340l76-31" stroke="#c15055" stroke-linecap="round" stroke-width="20" />
+</svg>

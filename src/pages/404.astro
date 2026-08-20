@@ -1,52 +1,30 @@
 ---
-import "../styles/global.css";
+import { SITE } from "../config/site";
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="robots" content="noindex, follow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Page not found | GameSite</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="shell header-inner">
-        <a class="wordmark" href="/" aria-label="GameSite home">
-          <span aria-hidden="true">GS</span>
-          GameSite
-        </a>
-        <span class="build-label">404</span>
-      </div>
-    </header>
-
-    <main class="shell error-page">
-      <div class="error-code" aria-hidden="true">404</div>
-      <div class="error-copy">
-        <p class="eyebrow">This route ends here</p>
-        <h1>That page could not be found.</h1>
-        <p>
-          The address may have changed, or the game may not have joined the
-          catalogue yet.
-        </p>
-        <nav aria-label="404 recovery links">
-          <a class="primary-link" href="/">Return home</a>
-        </nav>
-      </div>
-    </main>
-
-    <footer class="site-footer">
-      <div class="shell footer-inner">
-        <span>GameSite</span>
-        <span>Static by design.</span>
-      </div>
-    </footer>
-  </body>
-</html>
+<BaseLayout
+  title={`Page not found | ${SITE.name}`}
+  description={`The requested ${SITE.name} route could not be found.`}
+  canonicalPath="/404.html"
+  robots="noindex, follow"
+>
+  <section class="shell error-page">
+    <div class="error-code" aria-hidden="true">404</div>
+    <div class="error-copy">
+      <p class="eyebrow">This route ends here</p>
+      <h1>That page could not be found.</h1>
+      <p>
+        The address may have changed, or the game may not have joined the
+        catalogue yet.
+      </p>
+      <nav aria-label="404 recovery links">
+        <a class="button-link" href="/">Return home</a>
+        <a class="text-link" href="/games/">Browse all games</a>
+      </nav>
+    </div>
+  </section>
+</BaseLayout>
 
 <style>
   .error-page {
@@ -73,37 +51,14 @@ import "../styles/global.css";
 
   .error-copy h1 {
     max-width: 11ch;
-    font-size: clamp(3rem, 8vw, 6rem);
   }
 
-  .error-copy > p:not(.eyebrow) {
-    max-width: 34rem;
-    color: var(--color-ink-soft);
-    font-size: 1.1rem;
-  }
-
-  nav {
+  .error-copy nav {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 1rem;
     margin-top: 2rem;
-  }
-
-  nav a {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    justify-content: center;
-    padding: 0.7rem 1rem;
-    border: 1px solid var(--color-accent);
-    border-radius: 0.65rem;
-    font-weight: 750;
-    text-decoration: none;
-  }
-
-  .primary-link {
-    color: var(--color-surface);
-    background: var(--color-accent);
   }
 
   @media (min-width: 48rem) {

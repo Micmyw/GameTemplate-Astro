@@ -1,0 +1,40 @@
+---
+import GameCard from "../../components/games/GameCard.astro";
+import { SITE } from "../../config/site";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPopulatedPublishedCategories } from "../../lib/content/categories";
+import { getPublishedGames } from "../../lib/content/games";
+
+const games = await getPublishedGames();
+const categories = (await getPopulatedPublishedCategories()).map(
+  ({ category }) => category,
+);
+const categoryNames = new Map(
+  categories.map((category) => [category.id, category.data.name]),
+);
+---
+
+<BaseLayout
+  title={`All browser games | ${SITE.name}`}
+  description={`Browse every published game in the ${SITE.name} catalogue with clear summaries and category links.`}
+  canonicalPath="/games/"
+>
+  <header class="shell page-hero">
+    <p class="eyebrow">The complete route map</p>
+    <h1>All games</h1>
+    <p>
+      Start with a quick summary, then open a game page for its full play guide,
+      controls, and mobile notes.
+    </p>
+  </header>
+
+  <section class="shell catalogue-section" aria-label="Published games">
+    <div class="game-grid">
+      {
+        games.map((game) => (
+          <GameCard game={game} categoryNames={categoryNames} />
+        ))
+      }
+    </div>
+  </section>
+</BaseLayout>
