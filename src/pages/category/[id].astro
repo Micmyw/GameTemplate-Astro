@@ -1,0 +1,71 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+import GameCard from "../../components/games/GameCard.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import {
+  getGamesForCategory,
+  getPublishedCategories,
+} from "../../lib/content/categories";
+
+export async function getStaticPaths() {
+  const categories = await getPublishedCategories();
+  const paths = await Promise.all(
+    categories.map(async (category) => ({
+      category,
+      games: await getGamesForCategory(category.id),
+    })),
+  );
+
+  return paths
+    .filter(({ games }) => games.length > 0)
+    .map(({ category, games }) => ({
+      params: { id: category.id },
+      props: { category, games },
+    }));
+}
+
+type Props = {
+  category: CollectionEntry<"categories">;
+  games: CollectionEntry<"games">[];
+};
+
+const { category, games } = Astro.props;
+const categoryNames = new Map(
+  (await getPublishedCategories()).map((entry) => [entry.id, entry.data.name]),
+);
+---
+
+<BaseLayout
+  title={`${category.data.seoTitle} | GameSite`}
+  description={category.data.seoDescription}
+  canonicalPath={`/category/${category.id}/`}
+>
+  <header class="shell page-hero category-hero">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{category.data.name}</span>
+    </nav>
+    <p class="eyebrow">Category route</p>
+    <h1>{category.data.name}</h1>
+    <p>{category.data.shortDescription}</p>
+  </header>
+
+  <section
+    class="shell catalogue-section"
+    aria-label={`${category.data.name} games`}
+  >
+    <div class="section-heading">
+      <p class="section-label">Published in this category</p>
+      <p>{games.length} games</p>
+    </div>
+    <div class="game-grid">
+      {
+        games.map((game) => (
+          <GameCard game={game} categoryNames={categoryNames} />
+        ))
+      }
+    </div>
+  </section>
+</BaseLayout>

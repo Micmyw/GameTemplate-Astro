@@ -1,0 +1,24 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+type Props = {
+  controls: CollectionEntry<"games">["data"]["controls"];
+};
+
+const { controls } = Astro.props;
+---
+
+<section class="detail-section" aria-labelledby="controls-heading">
+  <p class="section-label">Input guide</p>
+  <h2 id="controls-heading">Controls</h2>
+  <dl class="control-list">
+    {
+      controls.map((control) => (
+        <div>
+          <dt>{control.input}</dt>
+          <dd>{control.action}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>
