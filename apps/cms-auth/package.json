@@ -1,0 +1,24 @@
+{
+  "name": "@game-site/cms-auth",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "test": "vitest run --no-file-parallelism",
+    "check": "tsc --noEmit",
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check .",
+    "cf:typegen": "wrangler types",
+    "deploy:dry": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "cheerio": "1.2.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.124.0"
+  }
+}
