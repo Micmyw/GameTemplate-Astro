@@ -12,11 +12,11 @@
   "observability": {
     "enabled": true,
     "logs": {
-      "head_sampling_rate": 1,
+      // Fetch invocation URLs include OAuth code/state query parameters.
+      "invocation_logs": false,
     },
     "traces": {
-      "enabled": true,
-      "head_sampling_rate": 0.01,
+      "enabled": false,
     },
   },
 }
