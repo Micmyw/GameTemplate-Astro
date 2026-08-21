@@ -1,8 +1,8 @@
 ---
-import { Image } from "astro:assets";
 import { render, type CollectionEntry } from "astro:content";
 
 import GameControls from "../../components/games/GameControls.astro";
+import GamePlayer from "../../components/games/GamePlayer.astro";
 import RelatedGames from "../../components/games/RelatedGames.astro";
 import JsonLd from "../../components/seo/JsonLd.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -69,29 +69,16 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           {game.data.tags.map((tag) => <span>{tag}</span>)}
         </div>
       </div>
-      <figure class="detail-cover">
-        <Image
-          src={game.data.coverImage}
-          alt={game.data.coverAlt}
-          width={640}
-          height={480}
-        />
-      </figure>
     </header>
 
-    <section class="player-placeholder" aria-labelledby="player-heading">
-      <div class="player-route" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </div>
-      <div>
-        <p class="section-label">Game player</p>
-        <h2 id="player-heading">Player coming in a later release</h2>
-        <p>
-          This reserved area keeps the future game frame stable. No game or
-          external embed loads in this release.
-        </p>
-      </div>
-    </section>
+    <GamePlayer
+      title={game.data.title}
+      embedUrl={game.data.embedUrl}
+      coverImage={game.data.coverImage}
+      coverAlt={game.data.coverAlt}
+      loadMode={game.data.loadMode}
+      aspectRatio={game.data.aspectRatio}
+    />
 
     <div class="game-info-strip" aria-label="Game information">
       <div><span>Mobile</span><strong>{game.data.mobileSupport}</strong></div>
