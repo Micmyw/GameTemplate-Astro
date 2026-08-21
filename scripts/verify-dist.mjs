@@ -541,6 +541,8 @@ function validatePage(
 ) {
   const { $, file, route } = page;
   const isNotFound = route === "/404.html";
+  const isAdmin = route === "/admin/" || route.startsWith("/admin/");
+  const isNonIndexable = isNotFound || isAdmin;
 
   const titles = $("title");
   if (titles.length !== 1 || !titles.first().text().trim()) {
@@ -556,11 +558,13 @@ function validatePage(
     }
   }
 
-  const headings = $("h1");
-  if (headings.length !== 1 || !headings.first().text().trim()) {
-    issues.push(
-      `dist/${file} must contain exactly one non-empty H1; found ${headings.length}`,
-    );
+  if (!isAdmin) {
+    const headings = $("h1");
+    if (headings.length !== 1 || !headings.first().text().trim()) {
+      issues.push(
+        `dist/${file} must contain exactly one non-empty H1; found ${headings.length}`,
+      );
+    }
   }
 
   page.robots = readSingletonAttribute(
@@ -574,12 +578,18 @@ function validatePage(
     if (!page.robots?.toLocaleLowerCase().includes("noindex")) {
       issues.push("dist/404.html must contain noindex in its robots metadata");
     }
+  } else if (isAdmin) {
+    if (!page.robots?.toLocaleLowerCase().includes("noindex")) {
+      issues.push(
+        `Admin page dist/${file} must contain noindex in its robots metadata`,
+      );
+    }
   } else if (page.robots?.toLocaleLowerCase().includes("noindex")) {
     issues.push(`Indexable page dist/${file} must not be marked noindex`);
   }
 
   const canonicals = canonicalElements($);
-  if (!isNotFound || canonicals.length > 0) {
+  if (!isNonIndexable || canonicals.length > 0) {
     page.canonical = readSingletonAttribute(
       issues,
       file,
@@ -615,7 +625,7 @@ function validatePage(
     }
   }
 
-  if (!isNotFound) {
+  if (!isNonIndexable) {
     readSingletonAttribute(
       issues,
       file,
