@@ -370,6 +370,53 @@ describe("launch-quality dist verification", () => {
     await expect(verifyFixture(distDirectory)).resolves.toBeTruthy();
   });
 
+  it("does not echo rejected GamePlayer credentials", async () => {
+    const marker = "SYNTHETIC_DIST_CREDENTIAL_MARKER";
+    const files = validFixture();
+    replaceRequired(
+      files,
+      "games/alpha-roll/index.html",
+      `data-src="${GAME_ORIGIN}/alpha-roll/"`,
+      `data-src="https://fixture-user:${marker}@play.fixture.example.test/alpha-roll/"`,
+    );
+    const distDirectory = await createDist(files);
+
+    let thrown: unknown;
+    try {
+      await verifyFixture(distDirectory);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(/GamePlayer.*credentials/i);
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
+  });
+
+  it("does not echo rejected configured site origin credentials", async () => {
+    const marker = "SYNTHETIC_SITE_ORIGIN_CREDENTIAL_MARKER";
+    const distDirectory = await createDist(validFixture());
+
+    let thrown: unknown;
+    try {
+      await verifyDist(distDirectory, {
+        expectedSiteOrigin: `https://fixture-user:${marker}@fixture.example.test`,
+        allowedGameOrigins: [new URL(GAME_ORIGIN)],
+        excludedRoutes: ["/games/obstacle-orbit/"],
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(
+      /configured site origin.*credentials/i,
+    );
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
+  });
+
   const requiredInvalidFixtures: InvalidFixture[] = [
     {
       name: "duplicate title elements",

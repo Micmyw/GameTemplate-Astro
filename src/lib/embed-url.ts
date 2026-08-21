@@ -1,9 +1,7 @@
 export const DEFAULT_GAME_ORIGIN = "https://play.example.com";
 
-const configurationError = (message: string, value?: string): Error =>
-  new Error(
-    `PUBLIC_GAME_ORIGINS ${message}${value === undefined ? "" : `: ${value}`}`,
-  );
+const configurationError = (message: string): Error =>
+  new Error(`PUBLIC_GAME_ORIGINS ${message}`);
 
 export function parseAllowedGameOrigins(raw: string): readonly URL[] {
   const values = raw
@@ -22,15 +20,15 @@ export function parseAllowedGameOrigins(raw: string): readonly URL[] {
     try {
       url = new URL(value);
     } catch {
-      throw configurationError("entries must be absolute URLs", value);
+      throw configurationError("entries must be absolute URLs");
     }
 
     if (url.protocol !== "https:") {
-      throw configurationError("entries must use HTTPS", value);
+      throw configurationError("entries must use HTTPS");
     }
 
     if (url.username || url.password) {
-      throw configurationError("entries cannot contain credentials", value);
+      throw configurationError("entries cannot contain credentials");
     }
 
     if (
@@ -42,7 +40,6 @@ export function parseAllowedGameOrigins(raw: string): readonly URL[] {
     ) {
       throw configurationError(
         "entries must be origins without a path, query, or fragment",
-        value,
       );
     }
 
@@ -62,27 +59,27 @@ export function validateEmbedUrl(
   try {
     url = new URL(raw);
   } catch {
-    throw new Error(`embedUrl must be an absolute HTTPS URL: ${raw}`);
+    throw new Error("embedUrl must be an absolute HTTPS URL");
   }
 
   if (url.protocol !== "https:") {
-    throw new Error(`embedUrl must use HTTPS: ${raw}`);
+    throw new Error("embedUrl must use HTTPS");
   }
 
   if (url.username || url.password) {
-    throw new Error(`embedUrl cannot contain credentials: ${raw}`);
+    throw new Error("embedUrl cannot contain credentials");
   }
 
   if (url.hash || raw.includes("#")) {
-    throw new Error(`embedUrl cannot contain a fragment: ${raw}`);
+    throw new Error("embedUrl cannot contain a fragment");
   }
 
   if (!url.pathname.endsWith("/")) {
-    throw new Error(`embedUrl path must end with a trailing slash: ${raw}`);
+    throw new Error("embedUrl path must end with a trailing slash");
   }
 
   if (!allowedOrigins.some((allowed) => allowed.origin === url.origin)) {
-    throw new Error(`embedUrl origin is not allowed: ${url.origin}`);
+    throw new Error("embedUrl origin is not allowed");
   }
 
   return url;

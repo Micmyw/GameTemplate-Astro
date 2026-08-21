@@ -41,6 +41,26 @@ describe("parseAllowedGameOrigins", () => {
   ])("rejects %s in the allowlist", (_name, raw) => {
     expect(() => parseAllowedGameOrigins(raw)).toThrow(/PUBLIC_GAME_ORIGINS/);
   });
+
+  it("does not echo rejected allowlist credentials", () => {
+    const marker = "SYNTHETIC_ALLOWLIST_CREDENTIAL_MARKER";
+    let thrown: unknown;
+
+    try {
+      parseAllowedGameOrigins(
+        `https://fixture-user:${marker}@play.example.com`,
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(
+      /PUBLIC_GAME_ORIGINS.*credentials/i,
+    );
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
+  });
 });
 
 describe("validateEmbedUrl", () => {
@@ -82,6 +102,25 @@ describe("validateEmbedUrl", () => {
       validateEmbedUrl("https://play.example.com:8443/game/", allowedOrigins)
         .origin,
     ).toBe("https://play.example.com:8443");
+  });
+
+  it("does not echo rejected credentials in an error message", () => {
+    const marker = "SYNTHETIC_EMBED_CREDENTIAL_MARKER";
+    let thrown: unknown;
+
+    try {
+      validateEmbedUrl(
+        `https://fixture-user:${marker}@play.example.com/game/`,
+        allowedOrigins,
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(/embedUrl.*credentials/i);
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
   });
 });
 

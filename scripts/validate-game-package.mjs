@@ -103,6 +103,13 @@ const decodeCssEscapes = (value) =>
 
 const redactMessage = (message) => message.replace(/[\r\n]+/gu, " ").trim();
 
+const sanitizeIssuePath = (value) =>
+  toPosixPath(value).replace(
+    /[\u0000-\u001f\u007f-\u009f]/gu,
+    (character) =>
+      `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+
 const createReport = (maxFileBytes) => ({
   schemaVersion: 1,
   ok: false,
@@ -117,7 +124,7 @@ const createReport = (maxFileBytes) => ({
 });
 
 const addIssue = (state, severity, code, path, message) => {
-  const normalizedPath = path ? toPosixPath(path) : undefined;
+  const normalizedPath = path ? sanitizeIssuePath(path) : undefined;
   const key = `${severity}\0${code}\0${normalizedPath ?? ""}`;
   if (state.issueKeys.has(key)) return;
   state.issueKeys.add(key);
@@ -302,6 +309,16 @@ async function walkPackage(state, directory, relativeDirectory = "") {
       continue;
     }
 
+    if (metadata.nlink > 1) {
+      addError(
+        state,
+        "HARD_LINK_NOT_ALLOWED",
+        relativePath,
+        "Files with multiple hard links are not allowed in game packages.",
+      );
+      continue;
+    }
+
     state.files.push({
       absolutePath,
       relativePath,
@@ -462,9 +479,25 @@ async function inspectFile(state, file) {
 }
 
 const staticScheme = (value) => {
-  const normalized = value.replace(/[\t\n\r]/gu, "");
+  const normalized = value
+    .replace(/^[\u0000-\u0020]+/u, "")
+    .replace(/[\u0000-\u0020]+$/u, "")
+    .replace(/[\t\n\r]/gu, "");
   const match = /^([a-z][a-z0-9+.-]*):/iu.exec(normalized);
   return match?.[1]?.toLocaleLowerCase("en-US");
+};
+
+const rejectForbiddenScriptUrl = (state, sourcePath, rawValue) => {
+  const scheme = staticScheme(rawValue.trim());
+  if (!new Set(["blob", "data"]).has(scheme)) return false;
+
+  addError(
+    state,
+    "SCRIPT_URL_NOT_ALLOWED",
+    sourcePath,
+    "Script URLs must not use embedded data or blob schemes.",
+  );
+  return true;
 };
 
 const resourceTarget = (state, sourcePath, rawValue, baseUrl, kind) => {
@@ -481,6 +514,8 @@ const resourceTarget = (state, sourcePath, rawValue, baseUrl, kind) => {
     );
     return;
   }
+  if (kind === "script" && rejectForbiddenScriptUrl(state, sourcePath, value))
+    return;
   if (new Set(["data", "blob", "mailto", "tel"]).has(scheme)) return;
   if (scheme && !new Set(["http", "https"]).has(scheme)) {
     addError(
@@ -687,22 +722,35 @@ function analyzeImportMap(state, sourcePath, contents, baseUrl) {
     return;
   }
 
-  const pending = [importMap];
+  const pending = [{ value: importMap, isMappingValue: true }];
   while (pending.length > 0) {
-    const value = pending.pop();
+    const entry = pending.pop();
+    if (!entry) continue;
+    const { value } = entry;
     if (typeof value === "string") {
+      if (
+        entry.isMappingValue &&
+        rejectForbiddenScriptUrl(state, sourcePath, value)
+      ) {
+        continue;
+      }
       if (isExternalHttpResource(value, baseUrl)) {
         resourceTarget(state, sourcePath, value, baseUrl, "script");
       }
       continue;
     }
     if (Array.isArray(value)) {
-      pending.push(...value);
+      for (const child of value) {
+        pending.push({ value: child, isMappingValue: true });
+      }
       continue;
     }
     if (typeof value === "object" && value !== null) {
       for (const [key, child] of Object.entries(value)) {
-        pending.push(key, child);
+        pending.push(
+          { value: key, isMappingValue: false },
+          { value: child, isMappingValue: true },
+        );
       }
     }
   }
@@ -746,13 +794,14 @@ function analyzeHtml(state, file, contents) {
     );
   });
   $("[href]").each((_, element) => {
-    if (element.tagName?.toLocaleLowerCase("en-US") === "base") return;
+    const tagName = element.tagName?.toLocaleLowerCase("en-US");
+    if (tagName === "base") return;
     resourceTarget(
       state,
       file.relativePath,
       $(element).attr("href") ?? "",
       baseUrl,
-      "resource",
+      tagName === "script" ? "script" : "resource",
     );
   });
   $("form[action]").each((_, element) => {
@@ -826,7 +875,14 @@ function analyzeHtml(state, file, contents) {
 
   $("*").each((_, element) => {
     for (const [attribute, value] of Object.entries(element.attribs ?? {})) {
-      if (attribute.toLocaleLowerCase("en-US").startsWith("on")) {
+      const normalizedAttribute = attribute.toLocaleLowerCase("en-US");
+      if (
+        normalizedAttribute === "xlink:href" &&
+        element.tagName?.toLocaleLowerCase("en-US") === "script"
+      ) {
+        resourceTarget(state, file.relativePath, value, baseUrl, "script");
+      }
+      if (normalizedAttribute.startsWith("on")) {
         analyzeScript(state, file.relativePath, value);
       }
     }
@@ -916,9 +972,54 @@ const COMPOSED_SET_ATTRIBUTE_PATTERN = new RegExp(
   String.raw`\bsetAttribute${SCRIPT_GAP}\(${SCRIPT_GAP}(["'])(?:src|href)\1${SCRIPT_GAP},${SCRIPT_GAP}(?:${SCRIPT_STRING_LITERAL}${SCRIPT_GAP}\+|${SCRIPT_TEMPLATE_INTERPOLATION})`,
   "giu",
 );
+const SCRIPT_DIRECT_IMPORT_SCRIPTS = String.raw`(?:importScripts|(?:globalThis|self)(?:${SCRIPT_MEMBER}importScripts|${SCRIPT_GAP}\[${SCRIPT_GAP}(?:"importScripts"|'importScripts')${SCRIPT_GAP}\]))`;
+const SCRIPT_DIRECT_WORKER_CONSTRUCTOR = String.raw`(?:(?:SharedWorker|Worker)|(?:globalThis|self|window)(?:${SCRIPT_MEMBER}(?:SharedWorker|Worker)|${SCRIPT_GAP}\[${SCRIPT_GAP}(?:"SharedWorker"|'SharedWorker'|"Worker"|'Worker')${SCRIPT_GAP}\]))`;
+const SCRIPT_LITERAL_LOADER_PATTERNS = [
+  {
+    pattern: new RegExp(String.raw`import${SCRIPT_GAP}\(`, "gu"),
+    inspectAllArguments: false,
+  },
+  {
+    pattern: new RegExp(
+      String.raw`(?:\(${SCRIPT_GAP})*${SCRIPT_DIRECT_IMPORT_SCRIPTS}(?:${SCRIPT_GAP}\))*${SCRIPT_GAP}(?:\?\.${SCRIPT_GAP})?\(`,
+      "gu",
+    ),
+    inspectAllArguments: true,
+    validateCalleeGroups: true,
+  },
+  {
+    pattern: new RegExp(
+      String.raw`new${SCRIPT_GAP}(?:\(${SCRIPT_GAP})*${SCRIPT_DIRECT_WORKER_CONSTRUCTOR}(?:${SCRIPT_GAP}\))*${SCRIPT_GAP}\(`,
+      "gu",
+    ),
+    inspectAllArguments: false,
+    validateCalleeGroups: true,
+  },
+];
+const SCRIPT_ARGUMENT_CLOSING_DELIMITER = new Map([
+  ["(", ")"],
+  ["[", "]"],
+  ["{", "}"],
+]);
+const SCRIPT_ARGUMENT_CLOSERS = new Set([")", "]", "}"]);
+const SCRIPT_SIMPLE_ESCAPE_VALUE = new Map([
+  ["b", "\b"],
+  ["f", "\f"],
+  ["n", "\n"],
+  ["r", "\r"],
+  ["t", "\t"],
+  ["v", "\v"],
+  ["'", "'"],
+  ['"', '"'],
+  ["`", "`"],
+  ["\\", "\\"],
+]);
+const SCRIPT_LINE_CONTINUATIONS = new Set(["\n", "\u2028", "\u2029"]);
 
 const maskScriptCommentsAndStrings = (contents) => {
   const masked = contents.split("");
+  const scriptLiteralRanges = [];
+  const staticScriptLiterals = [];
   let position = 0;
 
   const maskCharacter = (index) => {
@@ -967,16 +1068,113 @@ const maskScriptCommentsAndStrings = (contents) => {
     );
   };
 
+  const identifierTokenEndingAt = (end) => {
+    if (!/[$_\p{ID_Continue}\u200c\u200d]/u.test(masked[end] ?? "")) {
+      return;
+    }
+    let start = end;
+    while (
+      start >= 0 &&
+      /[$_\p{ID_Continue}\u200c\u200d]/u.test(masked[start] ?? "")
+    ) {
+      start -= 1;
+    }
+    return {
+      start: start + 1,
+      word: masked.slice(start + 1, end + 1).join(""),
+    };
+  };
+
+  const isDeclarationBoundaryBefore = (start) => {
+    const previous = previousSignificantIndex(start - 1);
+    if (previous < 0 || new Set(["{", "}", ";"]).has(masked[previous])) {
+      return true;
+    }
+    const token = identifierTokenEndingAt(previous);
+    if (!token || !new Set(["async", "default", "export"]).has(token.word)) {
+      return false;
+    }
+    return isDeclarationBoundaryBefore(token.start);
+  };
+
+  const isFunctionDeclarationOpening = (opening) => {
+    const parametersClosing = previousSignificantIndex(opening - 1);
+    if (masked[parametersClosing] !== ")") return false;
+    const parametersOpening = matchingOpeningIndex(parametersClosing, "(", ")");
+    if (parametersOpening < 0) return false;
+
+    const nameEnd = previousSignificantIndex(parametersOpening - 1);
+    if (masked[nameEnd] === "*") {
+      const functionEnd = previousSignificantIndex(nameEnd - 1);
+      const functionToken = identifierTokenEndingAt(functionEnd);
+      return (
+        functionToken?.word === "function" &&
+        isDeclarationBoundaryBefore(functionToken.start)
+      );
+    }
+    const name = identifierTokenEndingAt(nameEnd);
+    if (!name) return false;
+    if (name.word === "function") {
+      return isDeclarationBoundaryBefore(name.start);
+    }
+    let functionEnd = previousSignificantIndex(name.start - 1);
+    if (masked[functionEnd] === "*") {
+      functionEnd = previousSignificantIndex(functionEnd - 1);
+    }
+    const functionToken = identifierTokenEndingAt(functionEnd);
+    return (
+      functionToken?.word === "function" &&
+      isDeclarationBoundaryBefore(functionToken.start)
+    );
+  };
+
+  const isClassDeclarationOpening = (opening) => {
+    let parentheses = 0;
+    let brackets = 0;
+    let braces = 0;
+
+    for (let cursor = opening - 1; cursor >= 0; cursor -= 1) {
+      const character = masked[cursor];
+      if (character === ")") parentheses += 1;
+      else if (character === "(" && parentheses > 0) parentheses -= 1;
+      else if (character === "]") brackets += 1;
+      else if (character === "[" && brackets > 0) brackets -= 1;
+      else if (character === "}") braces += 1;
+      else if (character === "{" && braces > 0) braces -= 1;
+      else if (
+        parentheses === 0 &&
+        brackets === 0 &&
+        braces === 0 &&
+        new Set(["{", "}", ";"]).has(character)
+      ) {
+        return false;
+      }
+
+      if (parentheses !== 0 || brackets !== 0 || braces !== 0) continue;
+      const token = identifierTokenEndingAt(cursor);
+      if (!token) continue;
+      if (token.word === "class") {
+        return isDeclarationBoundaryBefore(token.start);
+      }
+      cursor = token.start;
+    }
+    return false;
+  };
+
   const isStatementBlockCloseBrace = (closing) => {
     const opening = matchingOpeningIndex(closing, "{", "}");
     if (opening < 0) return false;
     const previous = previousSignificantIndex(opening - 1);
     if (previous < 0) return true;
     if (masked[previous] === ")") {
-      return isControlStatementCloseParen(previous);
+      return (
+        isControlStatementCloseParen(previous) ||
+        isFunctionDeclarationOpening(opening)
+      );
     }
-    return new Set(["do", "else", "finally", "try"]).has(
-      wordEndingAt(previous),
+    return (
+      isClassDeclarationOpening(opening) ||
+      new Set(["do", "else", "finally", "try"]).has(wordEndingAt(previous))
     );
   };
 
@@ -1080,6 +1278,7 @@ const maskScriptCommentsAndStrings = (contents) => {
   };
 
   const maskQuotedString = (quote) => {
+    const start = position;
     position += 1;
     while (position < contents.length) {
       const character = contents[position];
@@ -1094,6 +1293,13 @@ const maskScriptCommentsAndStrings = (contents) => {
       }
       if (character === quote) {
         position += 1;
+        const literal = {
+          start,
+          end: position,
+          value: contents.slice(start + 1, position - 1),
+        };
+        scriptLiteralRanges.push(literal);
+        staticScriptLiterals.push(literal);
         return;
       }
       maskCharacter(position);
@@ -1102,6 +1308,8 @@ const maskScriptCommentsAndStrings = (contents) => {
   };
 
   function maskTemplateLiteral() {
+    const start = position;
+    let hasInterpolation = false;
     position += 1;
     while (position < contents.length) {
       const character = contents[position];
@@ -1116,9 +1324,17 @@ const maskScriptCommentsAndStrings = (contents) => {
       }
       if (character === "`") {
         position += 1;
+        const literal = {
+          start,
+          end: position,
+          value: contents.slice(start + 1, position - 1),
+        };
+        scriptLiteralRanges.push(literal);
+        if (!hasInterpolation) staticScriptLiterals.push(literal);
         return;
       }
       if (character === "$" && contents[position + 1] === "{") {
+        hasInterpolation = true;
         maskCharacter(position);
         maskCharacter(position + 1);
         position += 2;
@@ -1174,7 +1390,11 @@ const maskScriptCommentsAndStrings = (contents) => {
   }
 
   scanCode();
-  return masked.join("");
+  return {
+    codeSource: masked.join(""),
+    scriptLiteralRanges,
+    staticScriptLiterals,
+  };
 };
 
 const normalizeObviousScriptMembers = (
@@ -1227,8 +1447,275 @@ const hasExecutablePatternMatch = (contents, codeSource, pattern) => {
   return false;
 };
 
+const isExecutableBareScriptToken = (contents, codeSource, index) => {
+  if (index < 0 || codeSource[index] !== contents[index]) return false;
+  if (/[$#\p{ID_Continue}\u200c\u200d]/u.test(codeSource[index - 1] ?? "")) {
+    return false;
+  }
+
+  let previous = index - 1;
+  while (previous >= 0 && /\s/u.test(codeSource[previous] ?? "")) {
+    previous -= 1;
+  }
+  return codeSource[previous] !== ".";
+};
+
+const decodeStaticScriptLiteral = (rawValue) => {
+  let decoded = "";
+  let position = 0;
+
+  while (position < rawValue.length) {
+    const character = rawValue[position];
+    if (character !== "\\") {
+      decoded += character;
+      position += 1;
+      continue;
+    }
+
+    const escaped = rawValue[position + 1];
+    if (escaped === undefined) return { reliable: false };
+    if (SCRIPT_LINE_CONTINUATIONS.has(escaped)) {
+      position += 2;
+      continue;
+    }
+    if (escaped === "\r") {
+      position += rawValue[position + 2] === "\n" ? 3 : 2;
+      continue;
+    }
+
+    const simpleValue = SCRIPT_SIMPLE_ESCAPE_VALUE.get(escaped);
+    if (simpleValue !== undefined) {
+      decoded += simpleValue;
+      position += 2;
+      continue;
+    }
+    if (/[0-7]/u.test(escaped)) {
+      const maximumDigits = /[0-3]/u.test(escaped) ? 3 : 2;
+      let digits = escaped;
+      while (
+        digits.length < maximumDigits &&
+        /[0-7]/u.test(rawValue[position + 1 + digits.length] ?? "")
+      ) {
+        digits += rawValue[position + 1 + digits.length];
+      }
+      decoded += String.fromCharCode(Number.parseInt(digits, 8));
+      position += digits.length + 1;
+      continue;
+    }
+    if (/[89]/u.test(escaped)) return { reliable: false };
+
+    if (escaped === "x") {
+      const hex = rawValue.slice(position + 2, position + 4);
+      if (!/^[\da-f]{2}$/iu.test(hex)) return { reliable: false };
+      decoded += String.fromCharCode(Number.parseInt(hex, 16));
+      position += 4;
+      continue;
+    }
+
+    if (escaped === "u") {
+      if (rawValue[position + 2] === "{") {
+        const closingBrace = rawValue.indexOf("}", position + 3);
+        if (closingBrace < 0) return { reliable: false };
+        const hex = rawValue.slice(position + 3, closingBrace);
+        if (!/^[\da-f]+$/iu.test(hex)) return { reliable: false };
+        const codePoint = Number.parseInt(hex, 16);
+        if (codePoint > 0x10ffff) return { reliable: false };
+        decoded += String.fromCodePoint(codePoint);
+        position = closingBrace + 1;
+        continue;
+      }
+
+      const hex = rawValue.slice(position + 2, position + 6);
+      if (!/^[\da-f]{4}$/iu.test(hex)) return { reliable: false };
+      decoded += String.fromCharCode(Number.parseInt(hex, 16));
+      position += 6;
+      continue;
+    }
+
+    decoded += escaped;
+    position += 2;
+  }
+
+  return { reliable: true, value: decoded };
+};
+
+const warnDynamicResource = (state, sourcePath) => {
+  addWarning(
+    state,
+    "DYNAMIC_RESOURCE",
+    sourcePath,
+    "An unrecognized dynamic resource load requires manual review.",
+  );
+};
+
+const nextScriptArgumentStart = (
+  codeSource,
+  scriptLiteralRangeEndByStart,
+  start,
+) => {
+  const closingDelimiters = [];
+  let position = start;
+
+  while (position < codeSource.length) {
+    const literalEnd = scriptLiteralRangeEndByStart.get(position);
+    if (literalEnd !== undefined) {
+      position = literalEnd;
+      continue;
+    }
+
+    const character = codeSource[position];
+    const closingDelimiter = SCRIPT_ARGUMENT_CLOSING_DELIMITER.get(character);
+    if (closingDelimiter) {
+      closingDelimiters.push(closingDelimiter);
+      position += 1;
+      continue;
+    }
+    if (SCRIPT_ARGUMENT_CLOSERS.has(character)) {
+      if (closingDelimiters.length === 0) return;
+      if (closingDelimiters.pop() !== character) return;
+      position += 1;
+      continue;
+    }
+    if (character === "," && closingDelimiters.length === 0) {
+      return position + 1;
+    }
+    position += 1;
+  }
+};
+
+const staticScriptLiteralArgument = (
+  codeSource,
+  staticScriptLiteralByStart,
+  start,
+) => {
+  let position = start;
+  while (/\s/u.test(codeSource[position] ?? "")) position += 1;
+
+  let groupingDepth = 0;
+  while (codeSource[position] === "(") {
+    groupingDepth += 1;
+    position += 1;
+    while (/\s/u.test(codeSource[position] ?? "")) position += 1;
+  }
+
+  const literal = staticScriptLiteralByStart.get(position);
+  if (!literal) return;
+  position = literal.end;
+  while (/\s/u.test(codeSource[position] ?? "")) position += 1;
+
+  while (groupingDepth > 0) {
+    if (codeSource[position] !== ")") return;
+    groupingDepth -= 1;
+    position += 1;
+    while (/\s/u.test(codeSource[position] ?? "")) position += 1;
+  }
+
+  if (!new Set([",", ")"]).has(codeSource[position])) return;
+  return { literal, end: position };
+};
+
+const enumerateStaticScriptArguments = (
+  codeSource,
+  staticScriptLiteralByStart,
+  scriptLiteralRangeEndByStart,
+  openingParenthesis,
+  inspectAllArguments,
+) => {
+  const literals = [];
+  let position = openingParenthesis + 1;
+
+  while (position < codeSource.length) {
+    const argument = staticScriptLiteralArgument(
+      codeSource,
+      staticScriptLiteralByStart,
+      position,
+    );
+    if (argument) literals.push(argument.literal);
+    if (!inspectAllArguments) break;
+
+    const nextArgument = nextScriptArgumentStart(
+      codeSource,
+      scriptLiteralRangeEndByStart,
+      argument?.end ?? position,
+    );
+    if (nextArgument === undefined) break;
+    position = nextArgument;
+  }
+
+  return literals;
+};
+
+const hasBalancedCalleeGroups = (codeSource, start, openingParenthesis) => {
+  let depth = 0;
+  for (let position = start; position < openingParenthesis; position += 1) {
+    if (codeSource[position] === "(") depth += 1;
+    if (codeSource[position] === ")") {
+      if (depth === 0) return false;
+      depth -= 1;
+    }
+  }
+  return depth === 0;
+};
+
+const inspectLiteralScriptUrls = (
+  state,
+  sourcePath,
+  contents,
+  codeSource,
+  staticScriptLiteralByStart,
+  scriptLiteralRangeEndByStart,
+) => {
+  for (const {
+    pattern,
+    inspectAllArguments,
+    validateCalleeGroups,
+  } of SCRIPT_LITERAL_LOADER_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of contents.matchAll(pattern)) {
+      const index = match.index ?? -1;
+      if (!isExecutableBareScriptToken(contents, codeSource, index)) continue;
+      const openingParenthesis = index + match[0].length - 1;
+      if (
+        validateCalleeGroups &&
+        !hasBalancedCalleeGroups(codeSource, index, openingParenthesis)
+      ) {
+        continue;
+      }
+      for (const literal of enumerateStaticScriptArguments(
+        codeSource,
+        staticScriptLiteralByStart,
+        scriptLiteralRangeEndByStart,
+        openingParenthesis,
+        inspectAllArguments,
+      )) {
+        const decoded = decodeStaticScriptLiteral(literal.value);
+        if (!decoded.reliable) {
+          warnDynamicResource(state, sourcePath);
+          continue;
+        }
+        rejectForbiddenScriptUrl(state, sourcePath, decoded.value);
+      }
+    }
+  }
+};
+
 function analyzeScript(state, sourcePath, contents) {
-  const codeSource = maskScriptCommentsAndStrings(contents);
+  const { codeSource, scriptLiteralRanges, staticScriptLiterals } =
+    maskScriptCommentsAndStrings(contents);
+  const staticScriptLiteralByStart = new Map(
+    staticScriptLiterals.map((literal) => [literal.start, literal]),
+  );
+  const scriptLiteralRangeEndByStart = new Map(
+    scriptLiteralRanges.map((literal) => [literal.start, literal.end]),
+  );
+  inspectLiteralScriptUrls(
+    state,
+    sourcePath,
+    contents,
+    codeSource,
+    staticScriptLiteralByStart,
+    scriptLiteralRangeEndByStart,
+  );
   const normalizedMemberCode = normalizeObviousScriptMembers(
     contents,
     codeSource,
@@ -1308,12 +1795,7 @@ function analyzeScript(state, sourcePath, contents) {
       COMPOSED_SET_ATTRIBUTE_PATTERN,
     )
   ) {
-    addWarning(
-      state,
-      "DYNAMIC_RESOURCE",
-      sourcePath,
-      "An unrecognized dynamic resource load requires manual review.",
-    );
+    warnDynamicResource(state, sourcePath);
   }
 }
 
@@ -1431,10 +1913,10 @@ const formatIssueList = (label, issues) => {
   if (issues.length === 0) return `${label}: none`;
   return [
     `${label} (${issues.length}):`,
-    ...issues.map(
-      (issue) =>
-        `- [${issue.code}]${issue.path ? ` ${issue.path}:` : ""} ${issue.message}`,
-    ),
+    ...issues.map((issue) => {
+      const safePath = issue.path ? sanitizeIssuePath(issue.path) : undefined;
+      return `- [${issue.code}]${safePath ? ` ${safePath}:` : ""} ${issue.message}`;
+    }),
   ].join("\n");
 };
 

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -89,6 +89,21 @@ describe("validateGamePackage", () => {
     );
   });
 
+  it("rejects files with multiple hard links", async () => {
+    const directory = await createRuntimePackage({
+      "assets/original.js": "console.log('fixture');",
+      "index.html": '<!doctype html><script src="assets/original.js"></script>',
+    });
+    await link(
+      join(directory, "assets/original.js"),
+      join(directory, "assets/hard-linked.js"),
+    );
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("HARD_LINK_NOT_ALLOWED");
+  });
+
   it.each([
     ["path-escape", "RESOURCE_PATH_ESCAPE"],
     ["encoded-path-escape", "RESOURCE_PATH_ESCAPE"],
@@ -139,6 +154,47 @@ describe("validateGamePackage", () => {
 
     expect(issueCodes(html.errors)).toContain("JAVASCRIPT_URL");
     expect(issueCodes(css.errors)).toContain("JAVASCRIPT_URL");
+  });
+
+  it.each([
+    "data:text/javascript,window.top.location='/escape'",
+    "blob:https://package.invalid/synthetic-script",
+  ])("rejects an inline or blob script source: %s", async (source) => {
+    const directory = await createRuntimePackage({
+      "index.html": `<!doctype html><script src="${source}"></script>`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+  });
+
+  it.each([
+    ["href", "data:text/javascript,globalThis.fixture=1"],
+    ["xlink:href", "blob:https://package.invalid/synthetic-svg-script"],
+  ])(
+    "rejects an executable SVG script URL in %s",
+    async (attribute, source) => {
+      const directory = await createRuntimePackage({
+        "index.html": `<!doctype html><svg><script ${attribute}="${source}"></script></svg>`,
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it("continues allowing an inline image data URL", async () => {
+    const directory = await createRuntimePackage({
+      "index.html":
+        '<!doctype html><img alt="Fixture" src="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBA==">',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(report.errors).toEqual([]);
   });
 
   it("rejects a javascript scheme split by browser-normalized whitespace", async () => {
@@ -346,8 +402,52 @@ describe("validateGamePackage", () => {
   );
 
   it.each([
+    "function fixture() {} /window.top.location/.test(value)",
+    "class Fixture {} /window.top.location/.test(value)",
+  ])(
+    "does not reject a regex after a declaration block: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "index.html": `<!doctype html><script>${source}</script>`,
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).not.toContain("TOP_NAVIGATION");
+    },
+  );
+
+  it("does not reject a regex after an anonymous default-export function", async () => {
+    const directory = await createRuntimePackage({
+      "game.mjs":
+        "export default function() {} /window.top.location/.test(value)",
+      "index.html":
+        '<!doctype html><script type="module" src="game.mjs"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).not.toContain("TOP_NAVIGATION");
+  });
+
+  it("does not reject a regex after an anonymous default-export generator", async () => {
+    const directory = await createRuntimePackage({
+      "game.mjs":
+        "export default function*() {} /window.top.location/.test(value)",
+      "index.html":
+        '<!doctype html><script type="module" src="game.mjs"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).not.toContain("TOP_NAVIGATION");
+  });
+
+  it.each([
     'if (ready) /["]/; window.top.location = "/escape"',
     'if (ready) {} /["]/; window.top.location = "/escape"',
+    'function fixture() {} /["]/; window.top.location = "/escape"',
+    'class Fixture {} /["]/; window.top.location = "/escape"',
   ])(
     "continues scanning after a regex in statement context: %s",
     async (source) => {
@@ -360,6 +460,32 @@ describe("validateGamePackage", () => {
       expect(issueCodes(report.errors)).toContain("TOP_NAVIGATION");
     },
   );
+
+  it("continues after a regex following an anonymous default-export function", async () => {
+    const directory = await createRuntimePackage({
+      "game.mjs":
+        'export default function() {} /["]/; window.top.location = "/escape"',
+      "index.html":
+        '<!doctype html><script type="module" src="game.mjs"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("TOP_NAVIGATION");
+  });
+
+  it("continues after a regex following an anonymous default-export generator", async () => {
+    const directory = await createRuntimePackage({
+      "game.mjs":
+        'export default function*() {} /["]/; window.top.location = "/escape"',
+      "index.html":
+        '<!doctype html><script type="module" src="game.mjs"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("TOP_NAVIGATION");
+  });
 
   it("does not reject navigation text inside an HTML-style script comment", async () => {
     const directory = await createRuntimePackage({
@@ -572,6 +698,125 @@ describe("validateGamePackage", () => {
   });
 
   it.each([
+    'import("data:text/javascript,globalThis.fixture=1")',
+    'import("blob:https://package.invalid/synthetic-module")',
+    'importScripts("data:text/javascript,globalThis.fixture=1")',
+    'new Worker("blob:https://package.invalid/synthetic-worker")',
+    "import(`data:text/javascript,globalThis.fixture=1`)",
+    "importScripts(`blob:https://package.invalid/synthetic-import-script`)",
+    "new Worker(`data:text/javascript,globalThis.fixture=1`)",
+    'import("\\x64ata:text/javascript,globalThis.fixture=1")',
+    "importScripts('\\u0062lob:https://package.invalid/escaped-import-script')",
+    "new Worker(`\\u{64}ata:text/javascript,globalThis.fixture=1`)",
+    'import("\\x00data:text/javascript,globalThis.fixture=1\\u001f ")',
+    'new Worker(" \\bblob:https://package.invalid/control-wrapped-worker\\f")',
+  ])(
+    "rejects a data or blob URL used as executable script: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "game.js": source,
+        "index.html": '<!doctype html><script src="game.js"></script>',
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it.each([
+    String.raw`import("\1data:text/javascript,globalThis.fixture=1")`,
+    String.raw`new Worker("\142lob:https://package.invalid/legacy-octal-worker")`,
+  ])(
+    "rejects a data or blob URL encoded with a legacy octal escape: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "game.js": source,
+        "index.html": '<!doctype html><script src="game.js"></script>',
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it.each([
+    'import(("data:text/javascript,globalThis.fixture=1"))',
+    'importScripts("safe.js", (("blob:https://package.invalid/grouped-import-script")))',
+    '(importScripts)(("data:text/javascript,globalThis.fixture=1"))',
+    'new (Worker)(("data:text/javascript,globalThis.fixture=1"))',
+    'new ((SharedWorker))(("blob:https://package.invalid/grouped-shared-worker"))',
+  ])(
+    "rejects a parenthesized static executable script URL: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "game.js": source,
+        "index.html": '<!doctype html><script src="game.js"></script>',
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it.each([
+    'new window.Worker("data:text/javascript,globalThis.fixture=1")',
+    'new self.SharedWorker("blob:https://package.invalid/member-shared-worker")',
+    'new globalThis.Worker("blob:https://package.invalid/member-worker")',
+    'new window["Worker"]("data:text/javascript,globalThis.fixture=1")',
+    'self.importScripts("data:text/javascript,globalThis.fixture=1")',
+    'self["importScripts"]("data:text/javascript,globalThis.fixture=1")',
+    'importScripts?.("blob:https://package.invalid/optional-import-script")',
+    'globalThis.importScripts("safe.js", "blob:https://package.invalid/member-import-script")',
+  ])("rejects a direct global member script URL: %s", async (source) => {
+    const directory = await createRuntimePackage({
+      "game.js": source,
+      "index.html": '<!doctype html><script src="game.js"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+  });
+
+  it.each([
+    'importScripts("safe.js", "data:text/javascript,globalThis.fixture=1")',
+    'importScripts("safe.js", "second.js", "blob:https://package.invalid/synthetic-import-script")',
+    'importScripts(runtimeScriptUrl, "data:text/javascript,globalThis.fixture=1")',
+  ])(
+    "rejects a data or blob URL in any importScripts argument: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "game.js": source,
+        "index.html": '<!doctype html><script src="game.js"></script>',
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it.each([
+    'object.import("data:text/javascript,globalThis.fixture=1")',
+    'object /* gap */ . /* gap */ import("blob:https://package.invalid/method")',
+  ])(
+    "does not treat an import method call as dynamic import: %s",
+    async (source) => {
+      const directory = await createRuntimePackage({
+        "game.js": source,
+        "index.html": '<!doctype html><script src="game.js"></script>',
+      });
+
+      const report = await validateGamePackage(directory);
+
+      expect(issueCodes(report.errors)).not.toContain("SCRIPT_URL_NOT_ALLOWED");
+    },
+  );
+
+  it.each([
     "asset.src = 'fixed.js'",
     "fetch( 'fixed.json')",
     "asset.setAttribute('src', 'fixed.js')",
@@ -627,6 +872,40 @@ describe("validateGamePackage", () => {
       expect(issueCodes(report.errors)).not.toContain("TOP_NAVIGATION");
     },
   );
+
+  it.each([
+    "data:text/javascript,globalThis.fixture=1",
+    "blob:https://package.invalid/synthetic-import-map-module",
+  ])("rejects an executable import-map target: %s", async (target) => {
+    const directory = await createRuntimePackage({
+      "index.html": `<!doctype html><script type="importmap">${JSON.stringify({
+        imports: { fixture: target },
+      })}</script>`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("SCRIPT_URL_NOT_ALLOWED");
+  });
+
+  it("does not treat local or bare import-map targets as missing files", async () => {
+    const directory = await createRuntimePackage({
+      "game.js": "export {};",
+      "index.html": `<!doctype html><script type="importmap">${JSON.stringify({
+        imports: {
+          bare: "fixture-package",
+          local: "./game.js",
+        },
+      })}</script>`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(issueCodes(report.errors)).not.toEqual(
+      expect.arrayContaining(["RESOURCE_MISSING", "SCRIPT_URL_NOT_ALLOWED"]),
+    );
+  });
 
   it("warns without hard-failing when an import map is not valid JSON", async () => {
     const directory = await createRuntimePackage({
@@ -747,5 +1026,44 @@ describe("game package validator CLI", () => {
     expect(
       `${human.stdout}${human.stderr}${json.stdout}${json.stderr}`,
     ).not.toContain(fakeSecret);
+  });
+
+  it("neutralizes control and ANSI characters in issue paths and JSON", async () => {
+    const c1Marker = "\u009b";
+    const hostilePath = `assets/control${c1Marker}31m.pem`;
+    const directory = await createRuntimePackage({
+      [hostilePath]: "fixture key container",
+      "index.html": "<!doctype html><title>Fixture</title>",
+    });
+
+    const report = await validateGamePackage(directory);
+    const issue = report.errors.find(
+      ({ code }: { code: string }) => code === "SECRET_FILE",
+    );
+    const serialized = JSON.stringify(report);
+    const reparsed = JSON.parse(serialized) as typeof report;
+
+    expect(issue?.path).toBeDefined();
+    expect(issue?.path).not.toContain(c1Marker);
+    expect(serialized).not.toContain(c1Marker);
+    expect(reparsed.errors).toHaveLength(report.errors.length);
+
+    const rawControls = `unsafe\r\n\u0000\u001b[31m\u007f\u0085\u009b31m`;
+    const human = formatHumanReport({
+      ...report,
+      errors: [
+        {
+          code: "SYNTHETIC_PATH",
+          path: rawControls,
+          message: "Synthetic path safety check.",
+        },
+      ],
+      warnings: [],
+    });
+
+    expect(human).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u);
+    expect(human.split("\n")).toHaveLength(8);
+    expect(human).toContain("\\u001b");
+    expect(human).toContain("\\u009b");
   });
 });

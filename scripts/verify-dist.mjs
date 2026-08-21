@@ -208,24 +208,23 @@ function readHttpsUrl(issues, label, value, options = {}) {
   try {
     url = new URL(value);
   } catch {
-    issues.push(`${label} must be an absolute HTTPS URL: ${value}`);
+    issues.push(`${label} must be an absolute HTTPS URL`);
     return undefined;
   }
 
-  if (url.protocol !== "https:") {
-    issues.push(`${label} must use HTTPS: ${value}`);
-  }
   if (url.username || url.password) {
-    issues.push(`${label} must not contain credentials: ${value}`);
+    issues.push(`${label} must not contain credentials`);
+    return undefined;
+  }
+  if (url.protocol !== "https:") {
+    issues.push(`${label} must use HTTPS`);
   }
   if (
     options.origin &&
     !options.allowExternalOrigin &&
     url.origin !== options.origin
   ) {
-    issues.push(
-      `${label} origin must match site origin ${options.origin}: ${value}`,
-    );
+    issues.push(`${label} origin must match site origin ${options.origin}`);
   }
   return url;
 }
@@ -1101,7 +1100,7 @@ export async function verifyDist(distDirectory, options = {}) {
       (expectedUrl.pathname !== "/" || expectedUrl.search || expectedUrl.hash)
     ) {
       issues.push(
-        `Configured site origin must not contain a path, query, or hash: ${options.expectedSiteOrigin}`,
+        "Configured site origin must not contain a path, query, or hash",
       );
     }
     expectedSiteOrigin = expectedUrl?.origin;
