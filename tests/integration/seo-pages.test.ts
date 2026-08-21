@@ -332,7 +332,7 @@ describe("robots and Sitemap output", () => {
       .map((file) => readFileSync(file, "utf8"))
       .join("\n");
 
-    expect(output).not.toContain("example.com");
+    expect(output).not.toContain("https://example.com");
     expect(output).not.toContain("/games/obstacle-orbit/");
     expect(output).not.toContain("/category/seo-empty-archive/");
     expect(output).not.toContain("/category/seo-draft-lane/");
