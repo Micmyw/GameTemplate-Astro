@@ -1242,6 +1242,13 @@ The PR description must explicitly confirm:
 
 This PR is security-sensitive. Keep the OAuth Worker in a separate commit and separate directory.
 
+PR 5 is accepted in two checkpoints:
+
+- **PR 5A — code and local verification:** add Decap CMS local authoring, the tested OAuth Worker source, CI, and deployment documentation. Do not deploy the Worker, create a real GitHub OAuth App, configure real secrets, or claim a successful production OAuth login.
+- **PR 5B — production authentication evidence:** begins only after PR 5A code acceptance. Deploy the accepted Worker, configure the real OAuth App and secrets, add the real `base_url`/`auth_endpoint`, remove the local-only Admin guard, and collect live login plus content-commit evidence.
+
+Production acceptance is not complete until PR 5B provides a real CMS login, a content edit committed to GitHub, and the resulting site CI/build evidence.
+
 ## Task 13: Add Decap CMS local authoring
 
 **Files:**
@@ -1275,14 +1282,14 @@ npm install -D yaml
 
 - [ ] **Step 2: Add pinned CMS client**
 
-Use Decap CMS `3.12.2` in `public/admin/index.html`, not an unbounded `latest` CDN URL.
+Use Decap CMS `3.15.1` in `public/admin/index.html`, not an unbounded `latest` CDN URL.
 
 - [ ] **Step 3: Configure local backend**
 
 Add local authoring support and scripts:
 
 ```bash
-npm install -D decap-server npm-run-all
+npm install -D decap-server npm-run-all cross-env
 ```
 
 Scripts:
@@ -1290,8 +1297,8 @@ Scripts:
 ```json
 {
   "scripts": {
-    "dev:astro": "astro dev",
-    "dev:cms": "decap-server",
+    "dev:astro": "astro dev --host 127.0.0.1",
+    "dev:cms": "cross-env BIND_HOST=127.0.0.1 ORIGIN=http://127.0.0.1:4321 decap-server",
     "dev": "run-p dev:astro dev:cms"
   }
 }
@@ -1389,17 +1396,15 @@ npx wrangler secret put GITHUB_OAUTH_SECRET
 
 Never store values in `.dev.vars.example`.
 
-- [ ] **Step 5: Configure Decap production backend**
+- [ ] **Step 5: Preserve the PR 5A backend boundary**
 
-`public/admin/config.yml` must use:
+`public/admin/config.yml` must use the real repository while PR 5A remains local-only:
 
 ```yaml
 backend:
   name: github
   branch: main
   repo: <resolved from current git remote and committed as the real owner/repo>
-  base_url: <the actual deployed OAuth Worker URL>
-  auth_endpoint: /auth
 ```
 
 Codex must resolve the real repository from:
@@ -1408,9 +1413,9 @@ Codex must resolve the real repository from:
 git remote get-url origin
 ```
 
-Do not leave `owner/repo`, `example`, a previous template repo, or an unrelated Worker URL in the committed file.
+Do not leave `owner/repo`, a previous template repo, or an unrelated Worker URL in the committed file.
 
-If the OAuth Worker is not yet deployed, stop before this step and report the exact missing deployment dependency. Do not commit a fake production URL.
+PR 5A must not set `base_url` or `auth_endpoint`, must not fall back to Decap's default remote OAuth service, and must keep remote Admin hostnames from loading the CMS client. The config must explain that the real Worker Origin is added only in PR 5B after code acceptance and deployment. Do not commit a fake production URL.
 
 - [ ] **Step 6: Verify**
 
@@ -1439,7 +1444,21 @@ git add apps/cms-auth docs/deployment/cms-auth.md public/admin/config.yml
 git commit -m "feat: add Cloudflare OAuth proxy for CMS"
 ```
 
-## PR 5 Completion Gate
+## PR 5A Completion Gate
+
+Required code and local evidence:
+
+- local CMS screenshots showing the Admin UI, existing collections, and one complex game form;
+- automated CMS-shaped Markdown round-trip through Astro check/build;
+- OAuth Worker tests and dry-run output;
+- exact-Origin `postMessage`, state Cookie, callback validation, and security-header evidence;
+- root and `apps/cms-auth` CI jobs without secrets or deployment;
+- no `base_url`, no real OAuth App, no real secret, no Worker deployment, and no production login claim;
+- explicit PR 5B manual dependency list.
+
+PR 5A must be independently accepted before PR 5B begins.
+
+## PR 5B Completion Gate
 
 Required manual evidence:
 
@@ -1451,7 +1470,7 @@ Required manual evidence:
 - resulting site build passing;
 - no credentials in Git history.
 
-Do not merge on unit tests alone.
+Do not claim production CMS authentication complete on PR 5A unit tests alone.
 
 ---
 
