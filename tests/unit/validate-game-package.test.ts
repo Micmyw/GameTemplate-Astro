@@ -108,6 +108,12 @@ describe("validateGamePackage", () => {
     ["path-escape", "RESOURCE_PATH_ESCAPE"],
     ["encoded-path-escape", "RESOURCE_PATH_ESCAPE"],
     ["css-path-escape", "RESOURCE_PATH_ESCAPE"],
+    ["css-image-set-path-escape", "RESOURCE_PATH_ESCAPE"],
+    ["css-webkit-image-set-missing", "RESOURCE_MISSING"],
+    ["css-image-function-missing", "RESOURCE_MISSING"],
+    ["html-imagesrcset-path-escape", "RESOURCE_PATH_ESCAPE"],
+    ["svg-xlink-path-escape", "RESOURCE_PATH_ESCAPE"],
+    ["svg-xlink-missing", "RESOURCE_MISSING"],
     ["root-resource", "RESOURCE_PATH_ESCAPE"],
     ["missing-resource", "RESOURCE_MISSING"],
   ])("rejects unsafe or broken local resources in %s", async (name, code) => {
@@ -125,6 +131,60 @@ describe("validateGamePackage", () => {
     const report = await validateGamePackage(directory);
 
     expect(issueCodes(report.errors)).toContain("RESOURCE_PATH_ESCAPE");
+  });
+
+  it("decodes CSS escapes and ignores comments in image-set string URLs", async () => {
+    const directory = await createRuntimePackage({
+      "index.html": '<!doctype html><link rel="stylesheet" href="styles.css">',
+      "styles.css": String.raw`.hero { background-image: i\6d age-set(/* gap */ "\2e\2e/outside.png" 1x); }`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("RESOURCE_PATH_ESCAPE");
+  });
+
+  it("removes CSS string line continuations before checking an image URL", async () => {
+    const directory = await createRuntimePackage({
+      "index.html": '<!doctype html><link rel="stylesheet" href="styles.css">',
+      "outside.png": "decoy inside the package",
+      "styles.css": `.hero { background-image: image-set(".\\
+./outside.png" 1x); }`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("RESOURCE_PATH_ESCAPE");
+  });
+
+  it("does not treat an image-set type hint as a resource URL", async () => {
+    const directory = await createRuntimePackage({
+      "assets/game.png": "synthetic image bytes",
+      "index.html": '<!doctype html><link rel="stylesheet" href="styles.css">',
+      "styles.css":
+        '.hero { background-image: image-set("assets/game.png" 1x type("image/png")); }',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(report.errors).toEqual([]);
+  });
+
+  it.each([
+    'image-set("https://cdn.example.test/game.png" 1x)',
+    '-webkit-image-set("https://cdn.example.test/game.png" 1x)',
+    'image("https://cdn.example.test/game.png")',
+  ])("warns about an external CSS image function URL: %s", async (value) => {
+    const directory = await createRuntimePackage({
+      "index.html": '<!doctype html><link rel="stylesheet" href="styles.css">',
+      "styles.css": `.hero { background-image: ${value}; }`,
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(issueCodes(report.warnings)).toContain("EXTERNAL_NETWORK");
   });
 
   it("reports an invalid escaped CSS resource without crashing", async () => {
@@ -217,6 +277,43 @@ describe("validateGamePackage", () => {
     const report = await validateGamePackage(directory);
 
     expect(issueCodes(report.errors)).toContain("RESOURCE_PATH_ESCAPE");
+  });
+
+  it("allows a fragment-only SVG xlink:href", async () => {
+    const directory = await createRuntimePackage({
+      "index.html":
+        '<!doctype html><svg xmlns:xlink="http://www.w3.org/1999/xlink"><symbol id="icon"></symbol><use xlink:href="#icon" /></svg>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(report.errors).toEqual([]);
+  });
+
+  it("checks href and xlink:href independently on the same SVG element", async () => {
+    const directory = await createRuntimePackage({
+      "index.html":
+        '<!doctype html><svg xmlns:xlink="http://www.w3.org/1999/xlink"><image href="../outside.png" xlink:href="#safe" /></svg>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(issueCodes(report.errors)).toContain("RESOURCE_PATH_ESCAPE");
+  });
+
+  it("allows an image preload with imagesrcset and no href", async () => {
+    const directory = await createRuntimePackage({
+      "assets/game-1x.png": "synthetic 1x image bytes",
+      "assets/game-2x.png": "synthetic 2x image bytes",
+      "index.html":
+        '<!doctype html><link rel="preload" as="image" imagesrcset="assets/game-1x.png 1x, assets/game-2x.png 2x" />',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(report.errors).toEqual([]);
   });
 
   it.each([
@@ -848,6 +945,40 @@ describe("validateGamePackage", () => {
     const report = await validateGamePackage(directory);
 
     expect(issueCodes(report.warnings)).toContain("DYNAMIC_RESOURCE");
+  });
+
+  it.each([
+    "new Worker(workerUrl)",
+    "new SharedWorker(workerUrl)",
+    "new globalThis.Worker(workerUrl)",
+    'new globalThis.SharedWorker("workers/" + workerName)',
+    "new self.Worker(workerUrl)",
+    "new self.SharedWorker(workerUrl)",
+    "new window.Worker(workerUrl)",
+    "new window.SharedWorker(workerUrl)",
+  ])("warns for a dynamic worker constructor URL: %s", async (source) => {
+    const directory = await createRuntimePackage({
+      "game.js": source,
+      "index.html": '<!doctype html><script src="game.js"></script>',
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(issueCodes(report.warnings)).toContain("DYNAMIC_RESOURCE");
+  });
+
+  it("does not warn for a static SharedWorker URL", async () => {
+    const directory = await createRuntimePackage({
+      "game.js": 'new globalThis.SharedWorker("workers/worker.js")',
+      "index.html": '<!doctype html><script src="game.js"></script>',
+      "workers/worker.js": "globalThis.onconnect = () => {};",
+    });
+
+    const report = await validateGamePackage(directory);
+
+    expect(report.ok).toBe(true);
+    expect(issueCodes(report.warnings)).not.toContain("DYNAMIC_RESOURCE");
   });
 
   it.each(["https://cdn.example.test/game.js", "//cdn.example.test/game.js"])(

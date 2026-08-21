@@ -101,6 +101,9 @@ const decodeCssEscapes = (value) =>
     )
     .replace(/\\([^\r\n0-9a-f])/giu, "$1");
 
+const decodeCssStringEscapes = (value) =>
+  decodeCssEscapes(value.replace(/\\(?:\r\n|[\n\f\r])/gu, ""));
+
 const redactMessage = (message) => message.replace(/[\r\n]+/gu, " ").trim();
 
 const sanitizeIssuePath = (value) =>
@@ -693,6 +696,11 @@ const parseSrcset = (value) => {
   return candidates;
 };
 
+const hasOriginalXlinkHrefAttribute = (element) =>
+  Object.keys(element.sourceCodeLocation?.attrs ?? {}).some(
+    (attribute) => attribute.toLocaleLowerCase("en-US") === "xlink:href",
+  );
+
 const isExternalHttpResource = (rawValue, baseUrl) => {
   const value = rawValue.trim();
   if (!value) return false;
@@ -756,8 +764,35 @@ function analyzeImportMap(state, sourcePath, contents, baseUrl) {
   }
 }
 
+function analyzeXlinkHrefAttributes(state, sourcePath, contents, baseUrl) {
+  const $attributes = load(contents, {
+    xml: {
+      lowerCaseAttributeNames: true,
+      lowerCaseTags: true,
+      xmlMode: false,
+    },
+  });
+
+  $attributes("*").each((_, element) => {
+    const attributes = element.attribs ?? {};
+    if (!Object.hasOwn(attributes, "xlink:href")) return;
+
+    const tagName = element.tagName?.toLocaleLowerCase("en-US");
+    for (const attribute of ["href", "xlink:href"]) {
+      if (!Object.hasOwn(attributes, attribute)) continue;
+      resourceTarget(
+        state,
+        sourcePath,
+        attributes[attribute] ?? "",
+        baseUrl,
+        tagName === "script" ? "script" : "resource",
+      );
+    }
+  });
+}
+
 function analyzeHtml(state, file, contents) {
-  const $ = load(contents);
+  const $ = load(contents, { sourceCodeLocationInfo: true });
   const baseUrl = baseUrlForHtml(state, file, $);
 
   $("[target]").each((_, element) => {
@@ -795,7 +830,7 @@ function analyzeHtml(state, file, contents) {
   });
   $("[href]").each((_, element) => {
     const tagName = element.tagName?.toLocaleLowerCase("en-US");
-    if (tagName === "base") return;
+    if (tagName === "base" || hasOriginalXlinkHrefAttribute(element)) return;
     resourceTarget(
       state,
       file.relativePath,
@@ -845,6 +880,12 @@ function analyzeHtml(state, file, contents) {
       resourceTarget(state, file.relativePath, candidate, baseUrl, "resource");
     }
   });
+  $("[imagesrcset]").each((_, element) => {
+    for (const candidate of parseSrcset($(element).attr("imagesrcset") ?? "")) {
+      resourceTarget(state, file.relativePath, candidate, baseUrl, "resource");
+    }
+  });
+  analyzeXlinkHrefAttributes(state, file.relativePath, contents, baseUrl);
 
   $("style").each((_, element) => {
     analyzeCss(state, file.relativePath, $(element).text(), baseUrl);
@@ -876,18 +917,160 @@ function analyzeHtml(state, file, contents) {
   $("*").each((_, element) => {
     for (const [attribute, value] of Object.entries(element.attribs ?? {})) {
       const normalizedAttribute = attribute.toLocaleLowerCase("en-US");
-      if (
-        normalizedAttribute === "xlink:href" &&
-        element.tagName?.toLocaleLowerCase("en-US") === "script"
-      ) {
-        resourceTarget(state, file.relativePath, value, baseUrl, "script");
-      }
       if (normalizedAttribute.startsWith("on")) {
         analyzeScript(state, file.relativePath, value);
       }
     }
   });
 }
+
+const CSS_IMAGE_STRING_FUNCTIONS = new Set([
+  "-webkit-image-set",
+  "image",
+  "image-set",
+]);
+
+const isCssNameCharacter = (character) =>
+  character !== undefined &&
+  (/[a-z0-9_-]/iu.test(character) || character.codePointAt(0) >= 0x80);
+
+const cssEscapeEnd = (contents, start) => {
+  let position = start + 1;
+  if (position >= contents.length) return position;
+
+  if (contents[position] === "\r" && contents[position + 1] === "\n") {
+    return position + 2;
+  }
+  if (/\n|\r|\f/u.test(contents[position] ?? "")) return position + 1;
+
+  let hexadecimalLength = 0;
+  while (hexadecimalLength < 6 && /[0-9a-f]/iu.test(contents[position] ?? "")) {
+    hexadecimalLength += 1;
+    position += 1;
+  }
+  if (hexadecimalLength > 0) {
+    if (contents[position] === "\r" && contents[position + 1] === "\n") {
+      return position + 2;
+    }
+    if (/[\t\n\f\r ]/u.test(contents[position] ?? "")) position += 1;
+    return position;
+  }
+
+  return position + 1;
+};
+
+const cssCommentEnd = (contents, start) => {
+  const closing = contents.indexOf("*/", start + 2);
+  return closing === -1 ? contents.length : closing + 2;
+};
+
+const skipCssTrivia = (contents, start) => {
+  let position = start;
+  while (position < contents.length) {
+    if (/[\t\n\f\r ]/u.test(contents[position] ?? "")) {
+      position += 1;
+      continue;
+    }
+    if (contents.startsWith("/*", position)) {
+      position = cssCommentEnd(contents, position);
+      continue;
+    }
+    break;
+  }
+  return position;
+};
+
+const consumeCssIdentifier = (contents, start) => {
+  let position = start;
+  while (position < contents.length) {
+    if (isCssNameCharacter(contents[position])) {
+      position += 1;
+      continue;
+    }
+    if (contents[position] === "\\") {
+      position = cssEscapeEnd(contents, position);
+      continue;
+    }
+    break;
+  }
+  return position;
+};
+
+const consumeCssString = (contents, start) => {
+  const quote = contents[start];
+  let position = start + 1;
+  while (position < contents.length) {
+    if (contents[position] === quote) {
+      return {
+        end: position + 1,
+        value: contents.slice(start + 1, position),
+      };
+    }
+    if (contents[position] === "\\") {
+      position = cssEscapeEnd(contents, position);
+      continue;
+    }
+    if (/\n|\r|\f/u.test(contents[position] ?? "")) return undefined;
+    position += 1;
+  }
+  return undefined;
+};
+
+const parseCssImageStringReferences = (contents) => {
+  const references = [];
+  const functionStack = [];
+  let position = 0;
+
+  while (position < contents.length) {
+    if (contents.startsWith("/*", position)) {
+      position = cssCommentEnd(contents, position);
+      continue;
+    }
+
+    if (contents[position] === '"' || contents[position] === "'") {
+      const string = consumeCssString(contents, position);
+      if (!string) {
+        position += 1;
+        continue;
+      }
+      if (CSS_IMAGE_STRING_FUNCTIONS.has(functionStack.at(-1))) {
+        references.push(string.value);
+      }
+      position = string.end;
+      continue;
+    }
+
+    if (isCssNameCharacter(contents[position]) || contents[position] === "\\") {
+      const identifierEnd = consumeCssIdentifier(contents, position);
+      const name = decodeCssEscapes(
+        contents.slice(position, identifierEnd),
+      ).toLocaleLowerCase("en-US");
+      const openingParenthesis = skipCssTrivia(contents, identifierEnd);
+      if (contents[openingParenthesis] === "(") {
+        functionStack.push(name);
+        position = openingParenthesis + 1;
+      } else {
+        position = identifierEnd;
+      }
+      continue;
+    }
+
+    if (contents[position] === "(") {
+      functionStack.push(undefined);
+      position += 1;
+      continue;
+    }
+    if (contents[position] === ")") {
+      functionStack.pop();
+      position += 1;
+      continue;
+    }
+
+    position += 1;
+  }
+
+  return references;
+};
 
 function analyzeCss(state, sourcePath, contents, baseUrl) {
   const withoutComments = decodeCssEscapes(
@@ -902,12 +1085,13 @@ function analyzeCss(state, sourcePath, contents, baseUrl) {
   for (const match of withoutComments.matchAll(importPattern)) {
     references.push(match[2] ?? "");
   }
+  references.push(...parseCssImageStringReferences(contents));
 
   for (const reference of references) {
     resourceTarget(
       state,
       sourcePath,
-      decodeCssEscapes(reference),
+      decodeCssStringEscapes(reference),
       baseUrl,
       "resource",
     );
@@ -920,6 +1104,8 @@ const SCRIPT_STRING_LITERAL = String.raw`(?:"(?:\\[\s\S]|[^"\\\r\n])*"|'(?:\\[\s
 const SCRIPT_SHALLOW_GROUP = String.raw`\([^()]*\)`;
 const SCRIPT_GROUP_PREFIX = String.raw`(?:(?:[^()]|${SCRIPT_SHALLOW_GROUP})*?,${SCRIPT_GAP})?`;
 const SCRIPT_TEMPLATE_INTERPOLATION = String.raw`\x60(?:\\[\s\S]|[^\x60\\])*?\$\{`;
+const SCRIPT_DIRECT_WORKER_CONSTRUCTOR = String.raw`(?:(?:SharedWorker|Worker)|(?:globalThis|self|window)(?:${SCRIPT_MEMBER}(?:SharedWorker|Worker)|${SCRIPT_GAP}\[${SCRIPT_GAP}(?:"SharedWorker"|'SharedWorker'|"Worker"|'Worker')${SCRIPT_GAP}\]))`;
+const SCRIPT_RESOURCE_CONSTRUCTOR = String.raw`(?:EventSource|WebSocket|${SCRIPT_DIRECT_WORKER_CONSTRUCTOR})`;
 const BRACKET_MEMBER_PATTERN = new RegExp(
   String.raw`\[${SCRIPT_GAP}(["'])(top|parent|location|serviceWorker|register|call|apply|open|src|href)\1${SCRIPT_GAP}\]`,
   "giu",
@@ -945,7 +1131,7 @@ const CONCATENATED_RESOURCE_CALL_PATTERN = new RegExp(
   "iu",
 );
 const CONCATENATED_RESOURCE_CONSTRUCTOR_PATTERN = new RegExp(
-  String.raw`\bnew${SCRIPT_GAP}(?:EventSource|WebSocket|Worker)${SCRIPT_GAP}\(${SCRIPT_GAP}${SCRIPT_STRING_LITERAL}${SCRIPT_GAP}\+`,
+  String.raw`\bnew${SCRIPT_GAP}${SCRIPT_RESOURCE_CONSTRUCTOR}${SCRIPT_GAP}\(${SCRIPT_GAP}${SCRIPT_STRING_LITERAL}${SCRIPT_GAP}\+`,
   "iu",
 );
 const DYNAMIC_RESOURCE_CALL_PATTERN = new RegExp(
@@ -953,7 +1139,11 @@ const DYNAMIC_RESOURCE_CALL_PATTERN = new RegExp(
   "iu",
 );
 const DYNAMIC_RESOURCE_CONSTRUCTOR_PATTERN = new RegExp(
-  String.raw`\bnew${SCRIPT_GAP}(?:EventSource|WebSocket|Worker)${SCRIPT_GAP}\((?!${SCRIPT_GAP}["'\x60])${SCRIPT_GAP}`,
+  String.raw`\bnew${SCRIPT_GAP}${SCRIPT_RESOURCE_CONSTRUCTOR}${SCRIPT_GAP}\((?!${SCRIPT_GAP}["'\x60])${SCRIPT_GAP}`,
+  "iu",
+);
+const TEMPLATE_RESOURCE_CONSTRUCTOR_PATTERN = new RegExp(
+  String.raw`\bnew${SCRIPT_GAP}${SCRIPT_RESOURCE_CONSTRUCTOR}${SCRIPT_GAP}\(${SCRIPT_GAP}${SCRIPT_TEMPLATE_INTERPOLATION}`,
   "iu",
 );
 const DYNAMIC_RESOURCE_ASSIGNMENT_PATTERN = new RegExp(
@@ -973,7 +1163,6 @@ const COMPOSED_SET_ATTRIBUTE_PATTERN = new RegExp(
   "giu",
 );
 const SCRIPT_DIRECT_IMPORT_SCRIPTS = String.raw`(?:importScripts|(?:globalThis|self)(?:${SCRIPT_MEMBER}importScripts|${SCRIPT_GAP}\[${SCRIPT_GAP}(?:"importScripts"|'importScripts')${SCRIPT_GAP}\]))`;
-const SCRIPT_DIRECT_WORKER_CONSTRUCTOR = String.raw`(?:(?:SharedWorker|Worker)|(?:globalThis|self|window)(?:${SCRIPT_MEMBER}(?:SharedWorker|Worker)|${SCRIPT_GAP}\[${SCRIPT_GAP}(?:"SharedWorker"|'SharedWorker'|"Worker"|'Worker')${SCRIPT_GAP}\]))`;
 const SCRIPT_LITERAL_LOADER_PATTERNS = [
   {
     pattern: new RegExp(String.raw`import${SCRIPT_GAP}\(`, "gu"),
@@ -1773,9 +1962,7 @@ function analyzeScript(state, sourcePath, contents) {
     /\b(?:fetch|import|importScripts|sendBeacon)\s*\(\s*`[^`]*\$\{/iu.test(
       contents,
     ) ||
-    /\bnew\s+(?:EventSource|WebSocket|Worker)\s*\(\s*`[^`]*\$\{/iu.test(
-      contents,
-    ) ||
+    TEMPLATE_RESOURCE_CONSTRUCTOR_PATTERN.test(contents) ||
     CONCATENATED_RESOURCE_CALL_PATTERN.test(contents) ||
     CONCATENATED_RESOURCE_CONSTRUCTOR_PATTERN.test(contents) ||
     DYNAMIC_RESOURCE_ASSIGNMENT_PATTERN.test(memberSource) ||
