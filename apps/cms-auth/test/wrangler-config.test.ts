@@ -20,4 +20,8 @@ describe("Wrangler observability", () => {
     expect(objectBody("logs")).toMatch(/"invocation_logs"\s*:\s*false/);
     expect(objectBody("traces")).toMatch(/"enabled"\s*:\s*false/);
   });
+
+  it("keeps Wrangler isolated from the parent Astro TypeScript project", () => {
+    expect(wranglerConfig).toMatch(/"tsconfig"\s*:\s*"\.\/tsconfig\.json"/);
+  });
 });
