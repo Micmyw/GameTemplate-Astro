@@ -7,7 +7,11 @@ import {
   DEFAULT_SITE_ORIGIN,
   normalizeSiteOrigin,
 } from "../../src/lib/site-origin";
-import { createAstroConfig, resolveAstroMode } from "../../astro.config.mjs";
+import {
+  createAdminDirectoryIndexIntegration,
+  createAstroConfig,
+  resolveAstroMode,
+} from "../../astro.config.mjs";
 
 const projectRoot = resolve(import.meta.dirname, "../..");
 const testMode = "site-config-test";
@@ -87,6 +91,59 @@ describe("site origin configuration", () => {
     expect(resolveAstroMode(["node", "astro", "build"], "production")).toBe(
       "production",
     );
+  });
+});
+
+describe("local Admin directory index", () => {
+  it.each(["/admin", "/admin/"])(
+    "serves the Admin client for %s in Astro dev",
+    (requestUrl) => {
+      const middleware: Array<
+        (request: { url?: string }, response: unknown, next: () => void) => void
+      > = [];
+      const integration = createAdminDirectoryIndexIntegration();
+
+      integration.hooks["astro:server:setup"]({
+        server: {
+          middlewares: {
+            use(handler: (typeof middleware)[number]) {
+              middleware.push(handler);
+            },
+          },
+        },
+      });
+
+      const request = { url: requestUrl };
+      let continued = false;
+      middleware[0]?.(request, {}, () => {
+        continued = true;
+      });
+
+      expect(request.url).toBe("/admin/index.html");
+      expect(continued).toBe(true);
+    },
+  );
+
+  it("does not rewrite other public assets", () => {
+    const middleware: Array<
+      (request: { url?: string }, response: unknown, next: () => void) => void
+    > = [];
+    const integration = createAdminDirectoryIndexIntegration();
+
+    integration.hooks["astro:server:setup"]({
+      server: {
+        middlewares: {
+          use(handler: (typeof middleware)[number]) {
+            middleware.push(handler);
+          },
+        },
+      },
+    });
+
+    const request = { url: "/admin/config.yml" };
+    middleware[0]?.(request, {}, () => undefined);
+
+    expect(request.url).toBe("/admin/config.yml");
   });
 });
 

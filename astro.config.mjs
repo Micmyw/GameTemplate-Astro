@@ -9,6 +9,28 @@ import {
 } from "./src/lib/site-origin.ts";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+const adminDirectoryPaths = new Set(["/admin", "/admin/"]);
+
+export const createAdminDirectoryIndexIntegration = () => ({
+  name: "game-site-admin-directory-index",
+  hooks: {
+    "astro:server:setup": ({ server }) => {
+      server.middlewares.use((request, _response, next) => {
+        const requestUrl = request.url ?? "";
+        const queryIndex = requestUrl.indexOf("?");
+        const pathname =
+          queryIndex === -1 ? requestUrl : requestUrl.slice(0, queryIndex);
+
+        if (adminDirectoryPaths.has(pathname)) {
+          const query = queryIndex === -1 ? "" : requestUrl.slice(queryIndex);
+          request.url = `/admin/index.html${query}`;
+        }
+
+        next();
+      });
+    },
+  },
+});
 
 export const resolveAstroMode = (
   argumentsList = process.argv,
@@ -42,6 +64,7 @@ export const createAstroConfig = (mode, root = projectRoot) => {
     site: site.origin,
     trailingSlash: "always",
     integrations: [
+      createAdminDirectoryIndexIntegration(),
       sitemap({
         filter: (page) => !page.includes("/admin/"),
       }),
