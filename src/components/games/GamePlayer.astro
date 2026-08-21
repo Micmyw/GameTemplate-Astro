@@ -1,0 +1,121 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
+import { getGameFrameAttributes } from "./game-player";
+
+type Props = {
+  title: string;
+  embedUrl: string;
+  coverImage: ImageMetadata | string;
+  coverAlt: string;
+  loadMode: "click" | "eager";
+  aspectRatio: string;
+};
+
+const { title, embedUrl, coverImage, coverAlt, loadMode, aspectRatio } =
+  Astro.props;
+const frameAttributes = getGameFrameAttributes(title);
+const cssAspectRatio = aspectRatio.replace("/", " / ");
+---
+
+<section
+  class="game-player"
+  data-game-player
+  data-load-mode={loadMode}
+  data-src={embedUrl}
+  data-title={title}
+  data-state={loadMode === "eager" ? "loading" : "idle"}
+  style={`--game-player-aspect: ${cssAspectRatio}`}
+  aria-label={`${title} game player`}
+>
+  <div class="game-player-stage" data-game-stage>
+    <div class="game-player-frame-host" data-game-frame-host>
+      <script is:inline data-game-frame-observer>
+        (() => {
+          const host = document.currentScript?.parentElement;
+          if (!host || host.dataset.gameFrameObserver === "true") return;
+
+          host.dataset.gameFrameObserver = "true";
+          const recordFrameState = (event) => {
+            const frame = event.target;
+            if (!(frame instanceof HTMLIFrameElement)) return;
+            frame.dataset.gameFrameState =
+              event.type === "load" ? "loaded" : "error";
+          };
+
+          host.addEventListener("load", recordFrameState, true);
+          host.addEventListener("error", recordFrameState, true);
+        })();
+      </script>
+      {
+        loadMode === "eager" && (
+          <iframe
+            src={embedUrl}
+            title={frameAttributes.title}
+            allow={frameAttributes.allow}
+            sandbox={frameAttributes.sandbox}
+            referrerpolicy={frameAttributes.referrerpolicy}
+            allowfullscreen={frameAttributes.allowfullscreen}
+          />
+        )
+      }
+    </div>
+
+    {
+      loadMode === "click" && (
+        <div class="game-player-poster" data-game-poster>
+          {typeof coverImage === "string" ? (
+            <img
+              src={coverImage}
+              alt={coverAlt}
+              width="1280"
+              height="720"
+              loading="eager"
+              decoding="async"
+            />
+          ) : (
+            <Image
+              src={coverImage}
+              alt={coverAlt}
+              width={1280}
+              height={720}
+              loading="eager"
+            />
+          )}
+          <div class="game-player-poster-copy">
+            <p class="section-label">Game player</p>
+            <h2>Play {title}</h2>
+            <button class="game-player-play" type="button" data-game-play>
+              Play {title}
+            </button>
+          </div>
+        </div>
+      )
+    }
+  </div>
+
+  <div class="game-player-toolbar" aria-label={`${title} player controls`}>
+    <button type="button" data-game-reload disabled={loadMode === "click"}>
+      Reload game
+    </button>
+    <button type="button" data-game-fullscreen disabled={loadMode === "click"}>
+      Fullscreen
+    </button>
+  </div>
+  <p
+    class="game-player-status"
+    data-game-status
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+  >
+    {loadMode === "eager" ? "Loading game…" : "Ready to play"}
+  </p>
+</section>
+
+<script>
+  import { mountGamePlayers } from "./game-player";
+
+  mountGamePlayers();
+</script>

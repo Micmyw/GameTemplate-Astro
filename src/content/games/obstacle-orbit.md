@@ -8,7 +8,7 @@ coverAlt: "A violet ball circling a ring with rotating barriers"
 screenshots:
   - image: "../../assets/images/games/obstacle-orbit-cover.svg"
     alt: "A violet ball waiting between barriers on a circular track"
-embedUrl: "https://play.example.com/obstacle-orbit/"
+embedUrl: "https://play.example.com/obstacle-orbit/index.html"
 categories:
   - "skill-games"
 tags:

@@ -237,10 +237,11 @@ describe("static route generation", () => {
     expect(existsSync(routePath("/games/"))).toBe(true);
   });
 
-  it("renders a player placeholder without an iframe", () => {
+  it("renders a click-to-load player without an initial iframe", () => {
     const gameHtml = readRoute("/games/going-balls/");
 
-    expect(gameHtml).toContain("Player coming in a later release");
+    expect(gameHtml).toContain("data-game-player");
+    expect(gameHtml).toContain("Play Going Balls");
     expect(gameHtml).not.toMatch(/<iframe\b/i);
   });
 

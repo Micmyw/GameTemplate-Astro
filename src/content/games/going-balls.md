@@ -8,7 +8,7 @@ coverAlt: "A blue ball crossing a suspended obstacle course"
 screenshots:
   - image: "../../assets/images/games/going-balls-cover.svg"
     alt: "A blue ball approaching moving gates on a floating course"
-embedUrl: "https://play.example.com/going-balls/"
+embedUrl: "https://play.example.com/going-balls/index.html"
 categories:
   - "ball-games"
   - "skill-games"

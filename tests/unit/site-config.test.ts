@@ -34,6 +34,22 @@ describe("site origin configuration", () => {
     expect(() => normalizeSiteOrigin(value)).toThrow(/PUBLIC_SITE_URL/);
   });
 
+  it("does not echo rejected PUBLIC_SITE_URL credentials", () => {
+    const marker = "SYNTHETIC_SITE_ORIGIN_CREDENTIAL_MARKER";
+    let thrown: unknown;
+
+    try {
+      normalizeSiteOrigin(`https://fixture-user:${marker}@arcade.example.test`);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(/PUBLIC_SITE_URL.*credentials/i);
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
+  });
+
   it("uses an explicit documented default when no URL is configured", () => {
     expect(createSiteConfig({}).url.origin).toBe(DEFAULT_SITE_ORIGIN);
   });

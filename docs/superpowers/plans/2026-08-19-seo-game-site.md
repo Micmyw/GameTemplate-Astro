@@ -23,6 +23,7 @@
 - Use system fonts; do not load Google Fonts.
 - Use no client framework runtime.
 - All production iframe URLs must be HTTPS and pass the configured origin allowlist.
+- All production iframe paths must end with the case-sensitive `/index.html` entry filename.
 - Secrets must be stored in GitHub or Cloudflare secret stores, never in Git.
 - Every production-code behavior follows Red → Green → Refactor.
 - Every task ends with fresh verification evidence and a focused commit.
@@ -624,7 +625,7 @@ Requirements:
 - three different descriptions;
 - two categories;
 - one draft game to test filtering;
-- absolute `https://play.example.com/.../` embed URLs;
+- absolute `https://play.example.com/.../index.html` embed URLs;
 - no copied third-party text;
 - locally generated simple SVG/WebP placeholder cover images;
 - each body has distinct gameplay content.
@@ -1039,6 +1040,7 @@ The excerpt must show title, description, canonical, H1, body and JSON-LD before
 
 **Interfaces:**
 - Produces:
+  - `isGameEntryPath(pathname: string): boolean`
   - `parseAllowedGameOrigins(raw: string): URL[]`
   - `validateEmbedUrl(raw: string, allowedOrigins: URL[]): URL`
 - Consumes `PUBLIC_GAME_ORIGINS`.
@@ -1054,11 +1056,11 @@ Reject:
 - fragment;
 - unlisted Origin;
 - malformed URL;
-- path without trailing slash.
+- path that does not end with the case-sensitive `/index.html` entry filename.
 
 Accept:
 
-- an HTTPS URL whose exact Origin is allowed.
+- an HTTPS `/index.html` URL whose exact Origin is allowed, with an optional safe query.
 
 - [ ] **Step 2: Implement strict URL validation**
 
@@ -1187,6 +1189,20 @@ The document must cover:
 - verifying `index.html`;
 - adding the final URL to game Markdown.
 
+The documented mapping must be exact:
+
+```text
+public URL: https://play.example.com/<slug>/index.html
+object key: <slug>/index.html
+assets: <slug>/assets/<content-hashed-file>
+archive: _releases/<slug>/<version>/...
+```
+
+Do not assume a `/<slug>/` directory-index mapping and do not add a Worker or
+rewrite. Upload immutable hashed assets first, upload `index.html` last with
+`no-cache` or a reviewed short cache, and roll back by restoring the same live
+`<slug>/index.html` key.
+
 - [ ] **Step 4: Add script**
 
 ```json
@@ -1213,6 +1229,7 @@ The PR description must explicitly confirm:
 - no game build was added to the main repo;
 - no R2 secret exists;
 - iframe Origin validation uses exact Origin equality;
+- iframe paths use the exact `/index.html` entry contract;
 - iframe cannot navigate top-level;
 - click-mode HTML remains indexable without loading the game.
 

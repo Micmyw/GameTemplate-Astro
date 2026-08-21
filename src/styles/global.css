@@ -33,7 +33,8 @@ a {
   color: inherit;
 }
 
-a:focus-visible {
+a:focus-visible,
+button:focus-visible {
   border-radius: 0.2rem;
   outline: 0.2rem solid var(--color-highlight);
   outline-offset: 0.25rem;
@@ -500,9 +501,7 @@ h3 {
 }
 
 .game-detail-header {
-  display: grid;
-  align-items: center;
-  gap: 2rem;
+  max-width: 52rem;
   padding-bottom: clamp(3rem, 7vw, 6rem);
 }
 
@@ -526,75 +525,125 @@ h3 {
   font-size: 0.7rem;
 }
 
-.detail-cover {
+.game-player {
+  margin-bottom: 1rem;
+}
+
+.game-player-stage {
+  position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
-  margin: 0;
-  border: 1px solid var(--color-line);
+  width: 100%;
+  aspect-ratio: var(--game-player-aspect);
+  border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 1rem;
-  background: var(--color-surface);
+  background: var(--color-ink);
   box-shadow: var(--shadow-window);
 }
 
-.detail-cover img {
+.game-player-frame-host,
+.game-player-poster {
+  position: absolute;
+  inset: 0;
+}
+
+.game-player-frame-host iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #081126;
+}
+
+.game-player-poster {
+  display: grid;
+  align-items: end;
+  isolation: isolate;
+  padding: clamp(1.25rem, 5vw, 3rem);
+  color: var(--color-surface);
+}
+
+.game-player-poster[hidden] {
+  display: none;
+}
+
+.game-player-poster::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgb(8 17 38 / 8%) 20%,
+    rgb(8 17 38 / 88%) 100%
+  );
+  content: "";
+}
+
+.game-player-poster img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.player-placeholder {
-  position: relative;
-  display: grid;
-  min-height: 20rem;
-  overflow: hidden;
-  align-items: end;
-  padding: clamp(1.5rem, 5vw, 3rem);
-  border-radius: 1rem;
-  color: var(--color-surface);
-  background: var(--color-ink);
-}
-
-.player-placeholder > div:last-child {
-  position: relative;
-  z-index: 2;
+.game-player-poster-copy {
   max-width: 42rem;
 }
 
-.player-placeholder h2 {
+.game-player-poster-copy h2 {
   max-width: 18ch;
 }
 
-.player-placeholder p:not(.section-label) {
-  margin-bottom: 0;
-  color: #c6d1e4;
+.game-player-play,
+.game-player-toolbar button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.65rem;
+  color: var(--color-surface);
+  background: var(--color-accent);
+  font: inherit;
+  font-weight: 760;
+  cursor: pointer;
 }
 
-.player-route {
-  position: absolute;
-  inset: 0;
-  opacity: 0.6;
+.game-player-play:hover,
+.game-player-toolbar button:hover:not(:disabled) {
+  background: #174ccc;
 }
 
-.player-route span {
-  position: absolute;
-  left: -8%;
-  width: 116%;
-  height: 3.2rem;
-  border: 1px solid rgb(255 255 255 / 25%);
-  background: rgb(255 255 255 / 6%);
-  transform: rotate(-12deg);
+.game-player-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
 }
 
-.player-route span:nth-child(1) {
-  top: 18%;
+.game-player-toolbar button {
+  color: var(--color-accent);
+  background: var(--color-surface);
 }
 
-.player-route span:nth-child(2) {
-  top: 43%;
+.game-player-toolbar button:hover:not(:disabled) {
+  color: var(--color-surface);
 }
 
-.player-route span:nth-child(3) {
-  top: 68%;
+.game-player-toolbar button:disabled,
+.game-player-play:disabled {
+  border-color: var(--color-line);
+  color: var(--color-ink-soft);
+  background: #e8edf5;
+  cursor: not-allowed;
+}
+
+.game-player-status {
+  min-height: 1.65rem;
+  margin: 0.65rem 0 0;
+  color: var(--color-ink-soft);
+  font-family: var(--font-utility);
+  font-size: 0.78rem;
 }
 
 .game-info-strip {
@@ -743,8 +792,7 @@ h3 {
 }
 
 @media (min-width: 50rem) {
-  .hero,
-  .game-detail-header {
+  .hero {
     grid-template-columns: minmax(0, 1.05fr) minmax(20rem, 0.95fr);
   }
 
@@ -779,8 +827,9 @@ h3 {
     padding-block: 1rem;
   }
 
-  .player-placeholder {
-    min-height: 24rem;
+  .game-player-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

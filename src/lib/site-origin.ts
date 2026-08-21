@@ -7,24 +7,20 @@ export const normalizeSiteOrigin = (rawValue: string): URL => {
   try {
     url = new URL(value);
   } catch {
-    throw new Error(
-      `PUBLIC_SITE_URL must be an absolute HTTPS origin: ${rawValue}`,
-    );
+    throw new Error("PUBLIC_SITE_URL must be an absolute HTTPS origin");
   }
 
   if (url.protocol !== "https:") {
-    throw new Error(`PUBLIC_SITE_URL must use HTTPS: ${rawValue}`);
+    throw new Error("PUBLIC_SITE_URL must use HTTPS");
   }
 
   if (url.username || url.password) {
-    throw new Error(
-      `PUBLIC_SITE_URL must not contain credentials: ${rawValue}`,
-    );
+    throw new Error("PUBLIC_SITE_URL must not contain credentials");
   }
 
   if (url.pathname !== "/" || url.search || url.hash) {
     throw new Error(
-      `PUBLIC_SITE_URL must be an origin without a path, query, or hash: ${rawValue}`,
+      "PUBLIC_SITE_URL must be an origin without a path, query, or hash",
     );
   }
 

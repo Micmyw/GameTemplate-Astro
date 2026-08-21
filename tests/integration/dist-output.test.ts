@@ -9,6 +9,7 @@ import {
 } from "../../scripts/verify-dist.mjs";
 
 const SITE_ORIGIN = "https://fixture.example.test";
+const GAME_ORIGIN = "https://play.fixture.example.test";
 const SOCIAL_IMAGE = `${SITE_ORIGIN}/social-card.svg`;
 const projectRoot = resolve(import.meta.dirname, "../..");
 
@@ -43,6 +44,24 @@ const safeJson = (value: unknown) =>
 
 const jsonLdScript = (value: unknown) =>
   `<script type="application/ld+json">${safeJson(value)}</script>`;
+
+const secureFrame = (attributes = "") =>
+  `<iframe src="${GAME_ORIGIN}/alpha-roll/index.html" title="Play Alpha Roll" allow="fullscreen; autoplay; gamepad" sandbox="allow-scripts allow-same-origin allow-pointer-lock" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen${attributes}></iframe>`;
+
+const clickGamePlayer =
+  () => `<section class="game-player" data-game-player data-load-mode="click" data-src="${GAME_ORIGIN}/alpha-roll/index.html" data-title="Alpha Roll" data-state="idle" style="--game-player-aspect: 16 / 9">
+  <div data-game-stage><div data-game-frame-host></div><div data-game-poster><img src="/social-card.svg" alt="Alpha Roll course"><button type="button" data-game-play>Play Alpha Roll</button></div></div>
+  <button type="button" data-game-reload disabled>Reload game</button><button type="button" data-game-fullscreen disabled>Fullscreen</button>
+  <p data-game-status role="status" aria-live="polite">Ready to play</p>
+</section>`;
+
+const eagerGamePlayer = (frame = secureFrame()) =>
+  clickGamePlayer()
+    .replace('data-load-mode="click"', 'data-load-mode="eager"')
+    .replace(
+      "<div data-game-frame-host></div>",
+      `<div data-game-frame-host>${frame}</div>`,
+    );
 
 const websiteSchema = () => ({
   "@context": "https://schema.org",
@@ -228,7 +247,8 @@ const validFixture = (): FixtureFiles => ({
     title: "Alpha Roll browser game | Fixture Arcade",
     description: "Read the controls and original play guide for Alpha Roll.",
     h1: "Alpha Roll",
-    body: `<div class="game-info-strip"><a href="/category/ball-games/">Ball Games</a></div>
+    body: `${clickGamePlayer()}
+      <div class="game-info-strip"><a href="/category/ball-games/">Ball Games</a></div>
       <section class="game-copy"><div class="prose"><p>Preserve momentum, read each turn early, and use short corrections to keep the ball on the route.</p></div></section>`,
     schemas: [gameSchema(), gameBreadcrumbSchema()],
   }),
@@ -275,6 +295,7 @@ async function createDist(files: FixtureFiles) {
 const verifyFixture = (distDirectory: string) =>
   verifyDist(distDirectory, {
     expectedSiteOrigin: SITE_ORIGIN,
+    allowedGameOrigins: [new URL(GAME_ORIGIN)],
     excludedRoutes: ["/games/obstacle-orbit/"],
   });
 
@@ -334,6 +355,66 @@ describe("launch-quality dist verification", () => {
         "index.html",
       ]),
     );
+  });
+
+  it("accepts an eager player only when its initial iframe is secured", async () => {
+    const files = validFixture();
+    replaceRequired(
+      files,
+      "games/alpha-roll/index.html",
+      clickGamePlayer(),
+      eagerGamePlayer(),
+    );
+    const distDirectory = await createDist(files);
+
+    await expect(verifyFixture(distDirectory)).resolves.toBeTruthy();
+  });
+
+  it("does not echo rejected GamePlayer credentials", async () => {
+    const marker = "SYNTHETIC_DIST_CREDENTIAL_MARKER";
+    const files = validFixture();
+    replaceRequired(
+      files,
+      "games/alpha-roll/index.html",
+      `data-src="${GAME_ORIGIN}/alpha-roll/index.html"`,
+      `data-src="https://fixture-user:${marker}@play.fixture.example.test/alpha-roll/index.html"`,
+    );
+    const distDirectory = await createDist(files);
+
+    let thrown: unknown;
+    try {
+      await verifyFixture(distDirectory);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(/GamePlayer.*credentials/i);
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
+  });
+
+  it("does not echo rejected configured site origin credentials", async () => {
+    const marker = "SYNTHETIC_SITE_ORIGIN_CREDENTIAL_MARKER";
+    const distDirectory = await createDist(validFixture());
+
+    let thrown: unknown;
+    try {
+      await verifyDist(distDirectory, {
+        expectedSiteOrigin: `https://fixture-user:${marker}@fixture.example.test`,
+        allowedGameOrigins: [new URL(GAME_ORIGIN)],
+        excludedRoutes: ["/games/obstacle-orbit/"],
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(
+      /configured site origin.*credentials/i,
+    );
+    expect((thrown as Error).message).not.toContain(marker);
+    expect((thrown as Error).message).not.toContain("fixture-user");
   });
 
   const requiredInvalidFixtures: InvalidFixture[] = [
@@ -495,6 +576,162 @@ describe("launch-quality dist verification", () => {
         );
       },
     },
+    {
+      name: "a game page without a GamePlayer root",
+      expected: /GamePlayer.*root|root.*GamePlayer/i,
+      mutate: (files) => {
+        removeRequired(files, "games/alpha-roll/index.html", clickGamePlayer());
+      },
+    },
+    {
+      name: "a click player without a native Play button",
+      expected: /Play button|button.*Play/i,
+      mutate: (files) => {
+        removeRequired(
+          files,
+          "games/alpha-roll/index.html",
+          '<button type="button" data-game-play>Play Alpha Roll</button>',
+        );
+      },
+    },
+    {
+      name: "a click player with an initial iframe",
+      expected: /click.*iframe|iframe.*click/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          "<div data-game-frame-host></div>",
+          `<div data-game-frame-host>${secureFrame()}</div>`,
+        );
+      },
+    },
+    {
+      name: "a player with an HTTP data source",
+      expected: /data-src.*HTTPS|HTTPS.*data-src/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          "http://play.fixture.example.test/alpha-roll/index.html",
+        );
+      },
+    },
+    {
+      name: "a player whose data source Origin is not allowed",
+      expected: /data-src.*allowed|origin.*allowed|not allowed/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          "https://unlisted.example.test/alpha-roll/index.html",
+        );
+      },
+    },
+    {
+      name: "a player whose data source matches the main site Origin",
+      expected: /different origins|same.origin|main site/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          `${SITE_ORIGIN}/alpha-roll/index.html`,
+        );
+      },
+    },
+    {
+      name: "a player whose data source is a directory instead of index.html",
+      expected: /data-src.*index\.html|index\.html.*data-src/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          `${GAME_ORIGIN}/alpha-roll/`,
+        );
+      },
+    },
+    {
+      name: "an eager iframe without sandbox",
+      expected: /iframe.*sandbox|sandbox.*iframe/i,
+      mutate: (files) => {
+        const frame = secureFrame().replace(
+          ' sandbox="allow-scripts allow-same-origin allow-pointer-lock"',
+          "",
+        );
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          clickGamePlayer(),
+          eagerGamePlayer(frame),
+        );
+      },
+    },
+    {
+      name: "an eager game page with a second iframe outside its player root",
+      expected: /eager.*exactly one.*iframe|iframe.*eager/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          clickGamePlayer(),
+          `${eagerGamePlayer()}${secureFrame()}`,
+        );
+      },
+    },
+    {
+      name: "an eager iframe with allow-popups",
+      expected: /allow-popups|sandbox/i,
+      mutate: (files) => {
+        const frame = secureFrame().replace(
+          "allow-pointer-lock",
+          "allow-pointer-lock allow-popups",
+        );
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          clickGamePlayer(),
+          eagerGamePlayer(frame),
+        );
+      },
+    },
+    {
+      name: "an eager iframe with allow-top-navigation",
+      expected: /allow-top-navigation|sandbox/i,
+      mutate: (files) => {
+        const frame = secureFrame().replace(
+          "allow-pointer-lock",
+          "allow-pointer-lock allow-top-navigation",
+        );
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          clickGamePlayer(),
+          eagerGamePlayer(frame),
+        );
+      },
+    },
+    ...(["camera", "microphone", "geolocation"] as const).map(
+      (permission): InvalidFixture => ({
+        name: `an eager iframe that allows ${permission}`,
+        expected: new RegExp(`${permission}|iframe.*allow|allow.*iframe`, "i"),
+        mutate: (files) => {
+          const frame = secureFrame().replace(
+            "fullscreen; autoplay; gamepad",
+            `fullscreen; autoplay; gamepad; ${permission}`,
+          );
+          replaceRequired(
+            files,
+            "games/alpha-roll/index.html",
+            clickGamePlayer(),
+            eagerGamePlayer(frame),
+          );
+        },
+      }),
+    ),
   ];
 
   it.each(requiredInvalidFixtures)(

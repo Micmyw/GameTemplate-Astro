@@ -5,6 +5,18 @@ import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 import { loadEnv } from "vite";
 
+import {
+  GAME_FRAME_ALLOW,
+  GAME_FRAME_REFERRER_POLICY,
+  GAME_FRAME_SANDBOX,
+  getGameFrameAttributes,
+} from "../src/components/games/game-player.ts";
+import {
+  assertCrossOrigin,
+  DEFAULT_GAME_ORIGIN,
+  parseAllowedGameOrigins,
+  validateEmbedUrl,
+} from "../src/lib/embed-url.ts";
 import { resolveSiteOrigin } from "../src/lib/site-origin.ts";
 
 const MAX_PAGE_TITLE_LENGTH = 65;
@@ -24,6 +36,25 @@ const REQUIRED_TWITTER_FIELDS = [
 ];
 const SITE_JSON_LD_URL_KEYS = new Set(["@id", "image", "item", "url"]);
 const EXTERNAL_JSON_LD_URL_KEYS = new Set(["@context", "availability"]);
+const FORBIDDEN_SANDBOX_TOKENS = new Set([
+  "allow-popups",
+  "allow-popups-to-escape-sandbox",
+  "allow-top-navigation",
+  "allow-top-navigation-by-user-activation",
+  "allow-forms",
+  "allow-modals",
+  "allow-downloads",
+]);
+const FORBIDDEN_FRAME_PERMISSIONS = new Set([
+  "camera",
+  "microphone",
+  "geolocation",
+  "clipboard",
+  "clipboard-read",
+  "clipboard-write",
+  "payment",
+  "web-share",
+]);
 
 const toPosixPath = (path) => path.replaceAll("\\", "/");
 
@@ -177,24 +208,23 @@ function readHttpsUrl(issues, label, value, options = {}) {
   try {
     url = new URL(value);
   } catch {
-    issues.push(`${label} must be an absolute HTTPS URL: ${value}`);
+    issues.push(`${label} must be an absolute HTTPS URL`);
     return undefined;
   }
 
-  if (url.protocol !== "https:") {
-    issues.push(`${label} must use HTTPS: ${value}`);
-  }
   if (url.username || url.password) {
-    issues.push(`${label} must not contain credentials: ${value}`);
+    issues.push(`${label} must not contain credentials`);
+    return undefined;
+  }
+  if (url.protocol !== "https:") {
+    issues.push(`${label} must use HTTPS`);
   }
   if (
     options.origin &&
     !options.allowExternalOrigin &&
     url.origin !== options.origin
   ) {
-    issues.push(
-      `${label} origin must match site origin ${options.origin}: ${value}`,
-    );
+    issues.push(`${label} origin must match site origin ${options.origin}`);
   }
   return url;
 }
@@ -340,9 +370,175 @@ function createPage(file, html) {
  * @param {ReturnType<typeof createPage>} page
  * @param {string[]} issues
  * @param {string | undefined} siteOrigin
+ * @param {readonly URL[]} allowedGameOrigins
+ */
+function validateGamePlayer(page, issues, siteOrigin, allowedGameOrigins) {
+  const { $, file } = page;
+  const roots = $("[data-game-player]");
+
+  if (roots.length !== 1) {
+    issues.push(
+      `Game page dist/${file} must contain exactly one GamePlayer root; found ${roots.length}`,
+    );
+    return;
+  }
+
+  const root = roots.first();
+  const loadMode = root.attr("data-load-mode")?.trim();
+  if (loadMode !== "click" && loadMode !== "eager") {
+    issues.push(
+      `GamePlayer in dist/${file} must use data-load-mode="click" or "eager"`,
+    );
+  }
+
+  const title = root.attr("data-title")?.trim();
+  if (!title) {
+    issues.push(
+      `GamePlayer in dist/${file} must contain a non-empty data-title`,
+    );
+  }
+
+  const rawSource = root.attr("data-src")?.trim();
+  let entryUrl;
+  if (!rawSource) {
+    issues.push(`GamePlayer data-src in dist/${file} must not be empty`);
+  } else {
+    try {
+      const parsedSource = new URL(rawSource);
+      if (siteOrigin) {
+        assertCrossOrigin(parsedSource, new URL(siteOrigin));
+      }
+      entryUrl = validateEmbedUrl(rawSource, allowedGameOrigins);
+    } catch (error) {
+      issues.push(
+        `GamePlayer data-src in dist/${file} is invalid: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  const playButtons = root.find('button[data-game-play][type="button"]');
+  const allFrames = $("iframe");
+  const playerFrames = root.find("iframe");
+
+  if (loadMode === "click") {
+    if (playButtons.length !== 1 || !playButtons.first().text().trim()) {
+      issues.push(
+        `Click GamePlayer in dist/${file} must contain exactly one non-empty native Play button`,
+      );
+    }
+    if (allFrames.length !== 0) {
+      issues.push(
+        `Click GamePlayer in dist/${file} must not contain an initial iframe`,
+      );
+    }
+  }
+
+  if (
+    loadMode === "eager" &&
+    (playerFrames.length !== 1 || allFrames.length !== 1)
+  ) {
+    issues.push(
+      `Eager game page dist/${file} must contain exactly one initial iframe inside its GamePlayer root; found ${allFrames.length} on the page and ${playerFrames.length} in the root`,
+    );
+  }
+
+  allFrames.each((_index, element) => {
+    const frame = $(element);
+    const frameSource = frame.attr("src")?.trim();
+    if (!frameSource) {
+      issues.push(`Iframe in dist/${file} must contain a non-empty src`);
+    } else {
+      try {
+        const frameUrl = validateEmbedUrl(frameSource, allowedGameOrigins);
+        if (entryUrl && frameUrl.href !== entryUrl.href) {
+          issues.push(
+            `Iframe src in dist/${file} must equal its GamePlayer data-src`,
+          );
+        }
+      } catch (error) {
+        issues.push(
+          `Iframe src in dist/${file} is invalid: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    const expectedAttributes = title
+      ? getGameFrameAttributes(title)
+      : undefined;
+    if (
+      expectedAttributes &&
+      frame.attr("title") !== expectedAttributes.title
+    ) {
+      issues.push(`Iframe in dist/${file} must contain the exact game title`);
+    }
+    if (frame.attr("allow") !== GAME_FRAME_ALLOW) {
+      issues.push(
+        `Iframe allow in dist/${file} must equal "${GAME_FRAME_ALLOW}"`,
+      );
+    }
+    if (frame.attr("sandbox") !== GAME_FRAME_SANDBOX) {
+      issues.push(
+        `Iframe sandbox in dist/${file} must equal "${GAME_FRAME_SANDBOX}"`,
+      );
+    }
+    if (frame.attr("referrerpolicy") !== GAME_FRAME_REFERRER_POLICY) {
+      issues.push(
+        `Iframe referrerpolicy in dist/${file} must equal "${GAME_FRAME_REFERRER_POLICY}"`,
+      );
+    }
+    if (frame.attr("allowfullscreen") === undefined) {
+      issues.push(`Iframe in dist/${file} must contain allowfullscreen`);
+    }
+    if (frame.attr("srcdoc") !== undefined) {
+      issues.push(`Iframe in dist/${file} must not contain srcdoc`);
+    }
+
+    const sandboxTokens = new Set(
+      (frame.attr("sandbox") ?? "")
+        .toLocaleLowerCase()
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    for (const token of FORBIDDEN_SANDBOX_TOKENS) {
+      if (sandboxTokens.has(token)) {
+        issues.push(`Iframe in dist/${file} contains forbidden ${token}`);
+      }
+    }
+
+    const permissionTokens = new Set(
+      (frame.attr("allow") ?? "")
+        .toLocaleLowerCase()
+        .split(";")
+        .map((token) => token.trim().split(/\s+/)[0])
+        .filter(Boolean),
+    );
+    for (const permission of FORBIDDEN_FRAME_PERMISSIONS) {
+      if (permissionTokens.has(permission)) {
+        issues.push(
+          `Iframe in dist/${file} contains forbidden ${permission} permission`,
+        );
+      }
+    }
+  });
+}
+
+/**
+ * @param {ReturnType<typeof createPage>} page
+ * @param {string[]} issues
+ * @param {string | undefined} siteOrigin
  * @param {Set<string>} outputPaths
  */
-function validatePage(page, issues, siteOrigin, outputPaths) {
+function validatePage(
+  page,
+  issues,
+  siteOrigin,
+  outputPaths,
+  allowedGameOrigins,
+) {
   const { $, file, route } = page;
   const isNotFound = route === "/404.html";
 
@@ -567,6 +763,7 @@ function validatePage(page, issues, siteOrigin, outputPaths) {
   }
 
   if (/^\/games\/[^/]+\/$/.test(route)) {
+    validateGamePlayer(page, issues, siteOrigin, allowedGameOrigins);
     if (!$(".game-copy .prose").text().trim()) {
       issues.push(`Game page dist/${file} must contain game body text`);
     }
@@ -846,7 +1043,7 @@ async function validateRobots(distDirectory, outputFiles, issues, siteOrigin) {
 
 /**
  * @param {string} distDirectory
- * @param {{ expectedSiteOrigin?: string, excludedRoutes?: readonly string[] }} [options]
+ * @param {{ expectedSiteOrigin?: string, allowedGameOrigins?: readonly URL[], excludedRoutes?: readonly string[] }} [options]
  */
 export async function verifyDist(distDirectory, options = {}) {
   const outputFileList = await listOutputFiles(distDirectory);
@@ -903,7 +1100,7 @@ export async function verifyDist(distDirectory, options = {}) {
       (expectedUrl.pathname !== "/" || expectedUrl.search || expectedUrl.hash)
     ) {
       issues.push(
-        `Configured site origin must not contain a path, query, or hash: ${options.expectedSiteOrigin}`,
+        "Configured site origin must not contain a path, query, or hash",
       );
     }
     expectedSiteOrigin = expectedUrl?.origin;
@@ -918,9 +1115,11 @@ export async function verifyDist(distDirectory, options = {}) {
     );
   }
   const siteOrigin = expectedSiteOrigin ?? builtSiteOrigin;
+  const allowedGameOrigins =
+    options.allowedGameOrigins ?? parseAllowedGameOrigins(DEFAULT_GAME_ORIGIN);
   const excludedRoutes = new Set(options.excludedRoutes ?? []);
   for (const page of pages) {
-    validatePage(page, issues, siteOrigin, outputPaths);
+    validatePage(page, issues, siteOrigin, outputPaths, allowedGameOrigins);
     if (excludedRoutes.has(page.route)) {
       issues.push(
         `Generated output must not include unpublished route: ${page.route}`,
@@ -989,17 +1188,21 @@ if (isDirectRun) {
   const expectedSiteOrigin = resolveSiteOrigin(
     environment.PUBLIC_SITE_URL,
   ).origin;
+  const allowedGameOrigins = parseAllowedGameOrigins(
+    environment.PUBLIC_GAME_ORIGINS ?? DEFAULT_GAME_ORIGIN,
+  );
 
   discoverUnpublishedRoutes(projectRoot)
     .then((excludedRoutes) =>
       verifyDist(resolve(projectRoot, "dist"), {
         expectedSiteOrigin,
+        allowedGameOrigins,
         excludedRoutes,
       }),
     )
     .then(({ checkedFiles, indexablePages, sitemapUrls }) => {
       console.log(
-        `Verified ${checkedFiles.length} static HTML files, ${indexablePages} indexable pages, ${sitemapUrls.length} Sitemap URLs, robots.txt, metadata, links, and JSON-LD.`,
+        `Verified ${checkedFiles.length} static HTML files, ${indexablePages} indexable pages, ${sitemapUrls.length} Sitemap URLs, robots.txt, metadata, links, JSON-LD, and GamePlayer output.`,
       );
     })
     .catch((error) => {

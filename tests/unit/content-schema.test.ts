@@ -1,14 +1,13 @@
 import { z } from "astro/zod";
 import { describe, expect, it } from "vitest";
 
-import {
-  createGameSchema,
-  parseAllowedGameOrigins,
-} from "../../src/lib/content-schema";
+import { createGameSchema } from "../../src/lib/content-schema";
+import { parseAllowedGameOrigins } from "../../src/lib/embed-url";
 
 const imageSchema = z.string().min(1);
 const referenceSchema = z.string().min(1);
 const allowedOrigins = parseAllowedGameOrigins("https://play.example.com");
+const siteOrigin = new URL("https://example.com");
 
 const validGame = {
   title: "Going Balls",
@@ -25,7 +24,7 @@ const validGame = {
       alt: "A rolling ball approaching a set of moving gates",
     },
   ],
-  embedUrl: "https://play.example.com/going-balls/",
+  embedUrl: "https://play.example.com/going-balls/index.html",
   categories: ["ball-games", "skill-games"],
   tags: ["rolling", "obstacle", "3d"],
   controls: [
@@ -56,6 +55,7 @@ const schemaFor = (entryId = "going-balls") =>
     categoryReferenceSchema: referenceSchema,
     gameReferenceSchema: referenceSchema,
     allowedOrigins,
+    siteOrigin,
     entryId,
   });
 
@@ -64,6 +64,10 @@ describe("game content schema", () => {
     const parsed = schemaFor().parse(validGame);
 
     expect(parsed.title).toBe("Going Balls");
+    expect(parsed.embedUrl).toBe(
+      "https://play.example.com/going-balls/index.html",
+    );
+    expect(typeof parsed.embedUrl).toBe("string");
     expect(parsed.publishedAt).toBeInstanceOf(Date);
     expect(parsed.updatedAt).toBeInstanceOf(Date);
   });
@@ -71,7 +75,7 @@ describe("game content schema", () => {
   it("rejects a non-HTTPS embed URL", () => {
     const result = schemaFor().safeParse({
       ...validGame,
-      embedUrl: "http://play.example.com/going-balls/",
+      embedUrl: "http://play.example.com/going-balls/index.html",
     });
 
     expect(result.success).toBe(false);
@@ -80,8 +84,56 @@ describe("game content schema", () => {
   it("rejects an embed URL outside PUBLIC_GAME_ORIGINS", () => {
     const result = schemaFor().safeParse({
       ...validGame,
-      embedUrl: "https://games.invalid.example/going-balls/",
+      embedUrl: "https://games.invalid.example/going-balls/index.html",
     });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an embed URL on the main site origin", () => {
+    const schema = createGameSchema({
+      imageSchema,
+      categoryReferenceSchema: referenceSchema,
+      gameReferenceSchema: referenceSchema,
+      allowedOrigins: parseAllowedGameOrigins("https://example.com"),
+      siteOrigin,
+      entryId: "going-balls",
+    });
+
+    const result = schema.safeParse({
+      ...validGame,
+      embedUrl: "https://example.com/games/going-balls/index.html",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    ["16/9", "16/9"],
+    ["4/3", "4/3"],
+    ["32/18", "16/9"],
+    ["016/009", "16/9"],
+  ])("normalizes aspect ratio %s to %s", (input, expected) => {
+    const parsed = schemaFor().parse({ ...validGame, aspectRatio: input });
+
+    expect(parsed.aspectRatio).toBe(expected);
+    expect(typeof parsed.aspectRatio).toBe("string");
+  });
+
+  it.each([
+    "0/0",
+    "16/0",
+    "0/9",
+    "-16/9",
+    "16/-9",
+    "16.5/9",
+    "16/9.5",
+    "16 x 9",
+    "wide",
+    "16/",
+    "/9",
+  ])("rejects invalid aspect ratio %s", (aspectRatio) => {
+    const result = schemaFor().safeParse({ ...validGame, aspectRatio });
 
     expect(result.success).toBe(false);
   });
