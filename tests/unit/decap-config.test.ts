@@ -112,6 +112,13 @@ describe("Decap CMS configuration", () => {
     });
   });
 
+  it("defines the approved global media paths required by Decap", () => {
+    expect(config).toMatchObject({
+      media_folder: "src/assets/images/games",
+      public_folder: "../../assets/images/games",
+    });
+  });
+
   it("maps the games collection exactly to the live Astro schema", () => {
     const games = collectionMap(config).get("games");
     if (!games) throw new Error("Missing games collection");
@@ -121,9 +128,9 @@ describe("Decap CMS configuration", () => {
       create: true,
       extension: "md",
       format: "frontmatter",
-      media_folder: "src/assets/images/games",
-      public_folder: "../../assets/images/games",
     });
+    expect(games).not.toHaveProperty("media_folder");
+    expect(games).not.toHaveProperty("public_folder");
 
     const configuredFields = fieldMap(games, "games");
     expect([...configuredFields.keys()].sort()).toEqual(

@@ -13,6 +13,9 @@ local_backend:
     - 127.0.0.1
     - localhost
 
+media_folder: src/assets/images/games
+public_folder: ../../assets/images/games
+
 collections:
   - name: games
     label: Games
@@ -23,8 +26,6 @@ collections:
     format: frontmatter
     identifier_field: title
     summary: "{{title}} — {{status}}"
-    media_folder: src/assets/images/games
-    public_folder: ../../assets/images/games
     fields:
       - { label: Title, name: title, widget: string, required: true }
       - { label: SEO title, name: seoTitle, widget: string, required: true }
