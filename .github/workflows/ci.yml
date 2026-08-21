@@ -45,3 +45,37 @@ jobs:
 
       - name: Validate the deployment bundle
         run: npx wrangler deploy --dry-run
+
+  cms-auth:
+    name: CMS OAuth Worker quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/cms-auth
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/cms-auth/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci
+
+      - name: Check Worker formatting
+        run: npm run format:check
+
+      - name: Check Worker TypeScript
+        run: npm run check
+
+      - name: Run Worker tests
+        run: npm run test
+
+      - name: Validate the Worker bundle
+        run: npx wrangler deploy --dry-run
