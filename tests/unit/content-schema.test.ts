@@ -24,7 +24,7 @@ const validGame = {
       alt: "A rolling ball approaching a set of moving gates",
     },
   ],
-  embedUrl: "https://play.example.com/going-balls/",
+  embedUrl: "https://play.example.com/going-balls/index.html",
   categories: ["ball-games", "skill-games"],
   tags: ["rolling", "obstacle", "3d"],
   controls: [
@@ -64,7 +64,9 @@ describe("game content schema", () => {
     const parsed = schemaFor().parse(validGame);
 
     expect(parsed.title).toBe("Going Balls");
-    expect(parsed.embedUrl).toBe("https://play.example.com/going-balls/");
+    expect(parsed.embedUrl).toBe(
+      "https://play.example.com/going-balls/index.html",
+    );
     expect(typeof parsed.embedUrl).toBe("string");
     expect(parsed.publishedAt).toBeInstanceOf(Date);
     expect(parsed.updatedAt).toBeInstanceOf(Date);
@@ -73,7 +75,7 @@ describe("game content schema", () => {
   it("rejects a non-HTTPS embed URL", () => {
     const result = schemaFor().safeParse({
       ...validGame,
-      embedUrl: "http://play.example.com/going-balls/",
+      embedUrl: "http://play.example.com/going-balls/index.html",
     });
 
     expect(result.success).toBe(false);
@@ -82,7 +84,7 @@ describe("game content schema", () => {
   it("rejects an embed URL outside PUBLIC_GAME_ORIGINS", () => {
     const result = schemaFor().safeParse({
       ...validGame,
-      embedUrl: "https://games.invalid.example/going-balls/",
+      embedUrl: "https://games.invalid.example/going-balls/index.html",
     });
 
     expect(result.success).toBe(false);
@@ -100,7 +102,7 @@ describe("game content schema", () => {
 
     const result = schema.safeParse({
       ...validGame,
-      embedUrl: "https://example.com/games/going-balls/",
+      embedUrl: "https://example.com/games/going-balls/index.html",
     });
 
     expect(result.success).toBe(false);

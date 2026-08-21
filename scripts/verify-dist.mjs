@@ -399,7 +399,7 @@ function validateGamePlayer(page, issues, siteOrigin, allowedGameOrigins) {
   }
 
   const rawSource = root.attr("data-src")?.trim();
-  let sourceUrl;
+  let entryUrl;
   if (!rawSource) {
     issues.push(`GamePlayer data-src in dist/${file} must not be empty`);
   } else {
@@ -408,7 +408,7 @@ function validateGamePlayer(page, issues, siteOrigin, allowedGameOrigins) {
       if (siteOrigin) {
         assertCrossOrigin(parsedSource, new URL(siteOrigin));
       }
-      sourceUrl = validateEmbedUrl(rawSource, allowedGameOrigins);
+      entryUrl = validateEmbedUrl(rawSource, allowedGameOrigins);
     } catch (error) {
       issues.push(
         `GamePlayer data-src in dist/${file} is invalid: ${
@@ -452,7 +452,7 @@ function validateGamePlayer(page, issues, siteOrigin, allowedGameOrigins) {
     } else {
       try {
         const frameUrl = validateEmbedUrl(frameSource, allowedGameOrigins);
-        if (sourceUrl && frameUrl.href !== sourceUrl.href) {
+        if (entryUrl && frameUrl.href !== entryUrl.href) {
           issues.push(
             `Iframe src in dist/${file} must equal its GamePlayer data-src`,
           );

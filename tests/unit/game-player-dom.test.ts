@@ -11,7 +11,7 @@ const clickPlayerMarkup = (title = "Going Balls", slug = "going-balls") => `
   <section
     data-game-player
     data-load-mode="click"
-    data-src="https://play.example.com/${slug}/"
+    data-src="https://play.example.com/${slug}/index.html"
     data-title="${title}"
     data-state="idle"
   >
@@ -33,13 +33,13 @@ const eagerPlayerMarkup = (title = "Going Balls", slug = "going-balls") => `
   <section
     data-game-player
     data-load-mode="eager"
-    data-src="https://play.example.com/${slug}/"
+    data-src="https://play.example.com/${slug}/index.html"
     data-title="${title}"
     data-state="loading"
   >
     <div data-game-stage>
       <div data-game-frame-host>
-        <iframe src="https://play.example.com/${slug}/" title="Play ${title}"></iframe>
+        <iframe src="https://play.example.com/${slug}/index.html" title="Play ${title}"></iframe>
       </div>
     </div>
     <div>
@@ -111,7 +111,7 @@ describe("GamePlayer DOM behavior", () => {
     expect(frames).toHaveLength(1);
     const frame = frames[0];
     expect(frame?.getAttribute("src")).toBe(
-      "https://play.example.com/going-balls/",
+      "https://play.example.com/going-balls/index.html",
     );
     expect(frame?.getAttribute("title")).toBe("Play Going Balls");
     expect(frame?.getAttribute("allow")).toBe("fullscreen; autoplay; gamepad");
@@ -133,6 +133,34 @@ describe("GamePlayer DOM behavior", () => {
     expect(
       (root.querySelector("[data-game-poster]") as HTMLElement).hidden,
     ).toBe(true);
+  });
+
+  it("rejects a runtime source that does not target the exact index.html entry", () => {
+    testDocument.body.innerHTML = clickPlayerMarkup().replace(
+      "/going-balls/index.html",
+      "/going-balls/",
+    );
+    const root = player();
+
+    mountGamePlayer(root);
+
+    expect(root.dataset.state).toBe("unavailable");
+    expect(button(root, "[data-game-play]").disabled).toBe(true);
+    expect(root.querySelector("iframe")).toBeNull();
+  });
+
+  it("rejects an empty fragment in the runtime source", () => {
+    testDocument.body.innerHTML = clickPlayerMarkup().replace(
+      "/going-balls/index.html",
+      "/going-balls/index.html#",
+    );
+    const root = player();
+
+    mountGamePlayer(root);
+
+    expect(root.dataset.state).toBe("unavailable");
+    expect(button(root, "[data-game-play]").disabled).toBe(true);
+    expect(root.querySelector("iframe")).toBeNull();
   });
 
   it("keeps one iframe after repeated Play clicks and repeated mounting", () => {

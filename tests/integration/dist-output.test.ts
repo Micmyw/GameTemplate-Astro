@@ -46,10 +46,10 @@ const jsonLdScript = (value: unknown) =>
   `<script type="application/ld+json">${safeJson(value)}</script>`;
 
 const secureFrame = (attributes = "") =>
-  `<iframe src="${GAME_ORIGIN}/alpha-roll/" title="Play Alpha Roll" allow="fullscreen; autoplay; gamepad" sandbox="allow-scripts allow-same-origin allow-pointer-lock" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen${attributes}></iframe>`;
+  `<iframe src="${GAME_ORIGIN}/alpha-roll/index.html" title="Play Alpha Roll" allow="fullscreen; autoplay; gamepad" sandbox="allow-scripts allow-same-origin allow-pointer-lock" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen${attributes}></iframe>`;
 
 const clickGamePlayer =
-  () => `<section class="game-player" data-game-player data-load-mode="click" data-src="${GAME_ORIGIN}/alpha-roll/" data-title="Alpha Roll" data-state="idle" style="--game-player-aspect: 16 / 9">
+  () => `<section class="game-player" data-game-player data-load-mode="click" data-src="${GAME_ORIGIN}/alpha-roll/index.html" data-title="Alpha Roll" data-state="idle" style="--game-player-aspect: 16 / 9">
   <div data-game-stage><div data-game-frame-host></div><div data-game-poster><img src="/social-card.svg" alt="Alpha Roll course"><button type="button" data-game-play>Play Alpha Roll</button></div></div>
   <button type="button" data-game-reload disabled>Reload game</button><button type="button" data-game-fullscreen disabled>Fullscreen</button>
   <p data-game-status role="status" aria-live="polite">Ready to play</p>
@@ -376,8 +376,8 @@ describe("launch-quality dist verification", () => {
     replaceRequired(
       files,
       "games/alpha-roll/index.html",
-      `data-src="${GAME_ORIGIN}/alpha-roll/"`,
-      `data-src="https://fixture-user:${marker}@play.fixture.example.test/alpha-roll/"`,
+      `data-src="${GAME_ORIGIN}/alpha-roll/index.html"`,
+      `data-src="https://fixture-user:${marker}@play.fixture.example.test/alpha-roll/index.html"`,
     );
     const distDirectory = await createDist(files);
 
@@ -613,8 +613,8 @@ describe("launch-quality dist verification", () => {
         replaceRequired(
           files,
           "games/alpha-roll/index.html",
-          `${GAME_ORIGIN}/alpha-roll/`,
-          "http://play.fixture.example.test/alpha-roll/",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          "http://play.fixture.example.test/alpha-roll/index.html",
         );
       },
     },
@@ -625,8 +625,8 @@ describe("launch-quality dist verification", () => {
         replaceRequired(
           files,
           "games/alpha-roll/index.html",
-          `${GAME_ORIGIN}/alpha-roll/`,
-          "https://unlisted.example.test/alpha-roll/",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          "https://unlisted.example.test/alpha-roll/index.html",
         );
       },
     },
@@ -637,8 +637,20 @@ describe("launch-quality dist verification", () => {
         replaceRequired(
           files,
           "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
+          `${SITE_ORIGIN}/alpha-roll/index.html`,
+        );
+      },
+    },
+    {
+      name: "a player whose data source is a directory instead of index.html",
+      expected: /data-src.*index\.html|index\.html.*data-src/i,
+      mutate: (files) => {
+        replaceRequired(
+          files,
+          "games/alpha-roll/index.html",
+          `${GAME_ORIGIN}/alpha-roll/index.html`,
           `${GAME_ORIGIN}/alpha-roll/`,
-          `${SITE_ORIGIN}/alpha-roll/`,
         );
       },
     },

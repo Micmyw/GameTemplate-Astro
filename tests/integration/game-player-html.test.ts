@@ -29,7 +29,7 @@ shortDescription: "Exercise the eager GamePlayer output without changing a publi
 coverImage: "../../assets/images/games/roll-ball-3d-cover.svg"
 coverAlt: "An orange ball on a test course for the eager player"
 screenshots: []
-embedUrl: "https://play.example.com/eager-player-test/"
+embedUrl: "https://play.example.com/eager-player-test/index.html"
 categories:
   - "ball-games"
 tags:
@@ -106,7 +106,7 @@ describe("GamePlayer static HTML", () => {
     expect(player).toHaveLength(1);
     expect(player.attr("data-load-mode")).toBe("click");
     expect(player.attr("data-src")).toBe(
-      "https://play.example.com/going-balls/",
+      "https://play.example.com/going-balls/index.html",
     );
     expect(player.attr("style")).toMatch(/16\s*\/\s*9/);
     expect(player.find('button[data-game-play][type="button"]').text()).toBe(
@@ -122,7 +122,7 @@ describe("GamePlayer static HTML", () => {
     expect(player.find("[data-game-status]").attr("aria-live")).toBe("polite");
     expect(player.find("button:not([type='button'])")).toHaveLength(0);
     expect(
-      html.match(/https:\/\/play\.example\.com\/going-balls\//g),
+      html.match(/https:\/\/play\.example\.com\/going-balls\/index\.html/g),
     ).toHaveLength(1);
 
     expect($("h1").text()).toBe("Going Balls");
@@ -152,7 +152,7 @@ describe("GamePlayer static HTML", () => {
     expect(frame).toHaveLength(1);
     expect(observer).toHaveLength(1);
     expect(frame.attr("src")).toBe(
-      "https://play.example.com/eager-player-test/",
+      "https://play.example.com/eager-player-test/index.html",
     );
     expect(frame.attr("title")).toBe("Play Eager Player Test");
     expect(frame.attr("allow")).toBe("fullscreen; autoplay; gamepad");

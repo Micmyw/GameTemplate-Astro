@@ -61,7 +61,7 @@ coverAlt: "A player crossing the final moving platform"
 screenshots:
   - image: "../../assets/images/games/example-game-01.webp"
     alt: "The player waiting for a rotating gate to open"
-embedUrl: "https://play.example.com/example-game/"
+embedUrl: "https://play.example.com/example-game/index.html"
 categories:
   - "skill-games"
 tags:
@@ -86,8 +86,7 @@ relatedGames: []
 ```
 
 This example intentionally remains a draft. Its `play.example.com` URL is a
-placeholder until the R2 routing blocker is resolved and the package is actually
-released and tested.
+placeholder until the package is actually released and tested.
 
 ## Embed URL rules
 
@@ -109,38 +108,28 @@ Every `embedUrl` must:
   substring matching;
 - use an Origin different from the SEO site's `PUBLIC_SITE_URL` Origin;
 - contain no username, password, or fragment;
-- end its path with `/`;
+- end its path with the case-sensitive entry filename `/index.html`;
 - use a safe query only when the game genuinely requires it.
 
 The default development Origin is `https://play.example.com`. Production must
 replace it with the real, independently controlled game Origin. Never commit a
 real `.env` file.
 
-### R2 short-path blocker
+### R2 exact-key URL contract
 
-The desired embed URL is:
-
-```text
-https://play.example.com/<slug>/
-```
-
-Direct R2 custom-domain documentation does not establish that this URL resolves
-the `<slug>/index.html` object. The currently exact-key form is:
+The production embed URL maps directly to the R2 entry object:
 
 ```text
-https://play.example.com/<slug>/index.html
+public URL: https://play.example.com/<slug>/index.html
+object key: <slug>/index.html
+assets: <slug>/assets/<content-hashed-file>
+archive: _releases/<slug>/<version>/...
 ```
 
-That exact-key path does not meet the current trailing-slash content rule. Do
-not work around the conflict by claiming that R2 rewrites the URL. Do not mark a
-new game `published` until either:
-
-- an independently approved and tested routing layer maps `/<slug>/` to
-  `<slug>/index.html`; or
-- the project explicitly approves a schema and URL-contract change for
-  `/index.html` URLs.
-
-PR 4 does not add that router. See [the R2 deployment guide](deployment/r2.md#known-routing-blocker).
+Do not assume that `/<slug>/` maps to `<slug>/index.html`. This project does not
+add a Worker or rewrite to hide the entry filename. Do not mark a new game
+`published` until the exact `/index.html` URL passes browser verification. See
+[the R2 deployment guide](deployment/r2.md#exact-key-url-contract).
 
 ## Choosing `click` or `eager`
 
@@ -234,8 +223,8 @@ published.
 5. Follow [the R2 release workflow](deployment/r2.md): upload immutable assets,
    verify them, and upload `index.html` last. This step is manual and requires
    operator-owned credentials; the repository does not upload anything.
-6. Resolve the documented short-path routing blocker and verify the final HTTPS
-   URL in a real browser.
+6. Verify the exact `https://play.example.com/<slug>/index.html` URL in a real
+   browser; do not substitute the unsupported `/<slug>/` short path.
 7. Play through the game on desktop and at least one real or representative
    mobile viewport. Check touch input, orientation, audio behavior, console and
    network failures, reload, and fullscreen handling.

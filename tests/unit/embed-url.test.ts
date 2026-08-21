@@ -68,39 +68,57 @@ describe("validateEmbedUrl", () => {
     "https://play.example.com,https://play.example.com:8443",
   );
 
-  it("accepts an exact allowed HTTPS origin, trailing slash, and safe query", () => {
-    const parsed = validateEmbedUrl(
-      "https://PLAY.example.com:443/going-balls/?locale=en&quality=high",
-      allowedOrigins,
-    );
-
-    expect(parsed.href).toBe(
-      "https://play.example.com/going-balls/?locale=en&quality=high",
-    );
+  it.each([
+    [
+      "an exact index.html entry",
+      "https://PLAY.example.com:443/going-balls/index.html",
+      "https://play.example.com/going-balls/index.html",
+    ],
+    [
+      "an exact index.html entry with a safe query",
+      "https://play.example.com/going-balls/index.html?build=verified",
+      "https://play.example.com/going-balls/index.html?build=verified",
+    ],
+  ])("accepts %s", (_name, raw, expected) => {
+    expect(validateEmbedUrl(raw, allowedOrigins).href).toBe(expected);
   });
 
   it.each([
     ["malformed", "not a URL"],
-    ["HTTP", "http://play.example.com/going-balls/"],
+    ["HTTP", "http://play.example.com/going-balls/index.html"],
     ["JavaScript", "javascript:alert(1)"],
     ["data", "data:text/html,game"],
     ["blob", "blob:https://play.example.com/id"],
-    ["credentials", "https://user:password@play.example.com/going-balls/"],
-    ["a fragment", "https://play.example.com/going-balls/#player"],
-    ["an empty fragment", "https://play.example.com/going-balls/#"],
-    ["a missing trailing slash", "https://play.example.com/going-balls"],
-    ["an unlisted origin", "https://games.example.com/going-balls/"],
-    ["a lookalike hostname", "https://play.example.com.evil.test/game/"],
-    ["an unlisted subdomain", "https://cdn.play.example.com/game/"],
-    ["an unlisted port", "https://play.example.com:9443/game/"],
+    [
+      "credentials",
+      "https://user:password@play.example.com/going-balls/index.html",
+    ],
+    ["a fragment", "https://play.example.com/going-balls/index.html#fragment"],
+    ["an empty fragment", "https://play.example.com/going-balls/index.html#"],
+    ["a directory path", "https://play.example.com/going-balls/"],
+    [
+      "a different HTML entry",
+      "https://play.example.com/going-balls/game.html",
+    ],
+    ["an index.htm entry", "https://play.example.com/index.htm"],
+    ["a case-variant entry", "https://play.example.com/going-balls/INDEX.HTML"],
+    ["an unlisted origin", "https://games.example.com/going-balls/index.html"],
+    [
+      "a lookalike hostname",
+      "https://play.example.com.evil.test/game/index.html",
+    ],
+    ["an unlisted subdomain", "https://cdn.play.example.com/game/index.html"],
+    ["an unlisted port", "https://play.example.com:9443/game/index.html"],
   ])("rejects %s", (_name, raw) => {
     expect(() => validateEmbedUrl(raw, allowedOrigins)).toThrow(/embedUrl/);
   });
 
   it("matches allowed origins by exact normalized origin, including ports", () => {
     expect(
-      validateEmbedUrl("https://play.example.com:8443/game/", allowedOrigins)
-        .origin,
+      validateEmbedUrl(
+        "https://play.example.com:8443/game/index.html",
+        allowedOrigins,
+      ).origin,
     ).toBe("https://play.example.com:8443");
   });
 
@@ -110,7 +128,7 @@ describe("validateEmbedUrl", () => {
 
     try {
       validateEmbedUrl(
-        `https://fixture-user:${marker}@play.example.com/game/`,
+        `https://fixture-user:${marker}@play.example.com/game/index.html`,
         allowedOrigins,
       );
     } catch (error) {
@@ -128,7 +146,7 @@ describe("assertCrossOrigin", () => {
   const siteOrigin = new URL("https://example.com");
 
   it("returns a game URL hosted on a distinct origin", () => {
-    const gameUrl = new URL("https://play.example.com/game/");
+    const gameUrl = new URL("https://play.example.com/game/index.html");
 
     expect(assertCrossOrigin(gameUrl, siteOrigin)).toBe(gameUrl);
   });
@@ -159,8 +177,8 @@ describe("Astro command environment", () => {
     );
     const template = await readFile(templatePath, "utf8");
     const fixture = template.replace(
-      "https://play.example.com/obstacle-orbit/",
-      "https://player.integration.test/environment-proof/",
+      "https://play.example.com/obstacle-orbit/index.html",
+      "https://player.integration.test/environment-proof/index.html",
     );
     const environment = {
       ...process.env,

@@ -56,7 +56,7 @@ const game = (
       coverImage: image,
       coverAlt: `Cover art for ${id}`,
       screenshots: [{ image, alt: `Course view for ${id}` }],
-      embedUrl: `https://play.example.com/${id}/`,
+      embedUrl: `https://play.example.com/${id}/index.html`,
       categories: categoryIds.map((categoryId) => ({
         id: categoryId,
         collection: "categories" as const,

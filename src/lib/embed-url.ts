@@ -1,5 +1,9 @@
 export const DEFAULT_GAME_ORIGIN = "https://play.example.com";
 
+export function isGameEntryPath(pathname: string): boolean {
+  return pathname.endsWith("/index.html");
+}
+
 const configurationError = (message: string): Error =>
   new Error(`PUBLIC_GAME_ORIGINS ${message}`);
 
@@ -74,8 +78,8 @@ export function validateEmbedUrl(
     throw new Error("embedUrl cannot contain a fragment");
   }
 
-  if (!url.pathname.endsWith("/")) {
-    throw new Error("embedUrl path must end with a trailing slash");
+  if (!isGameEntryPath(url.pathname)) {
+    throw new Error("embedUrl path must end with /index.html");
   }
 
   if (!allowedOrigins.some((allowed) => allowed.origin === url.origin)) {

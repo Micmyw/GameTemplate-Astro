@@ -1,3 +1,5 @@
+import { isGameEntryPath } from "../../lib/embed-url.ts";
+
 export const GAME_LOAD_TIMEOUT_MS = 15_000;
 export const GAME_FRAME_ALLOW = "fullscreen; autoplay; gamepad";
 export const GAME_FRAME_SANDBOX =
@@ -35,7 +37,8 @@ function parseRuntimeSource(raw: string): URL {
     source.username ||
     source.password ||
     source.hash ||
-    !source.pathname.endsWith("/")
+    raw.includes("#") ||
+    !isGameEntryPath(source.pathname)
   ) {
     throw new Error("Game source must be a validated HTTPS game URL");
   }

@@ -8,7 +8,7 @@ coverAlt: "An orange ball choosing between two elevated lanes"
 screenshots:
   - image: "../../assets/images/games/roll-ball-3d-cover.svg"
     alt: "An orange ball moving toward a divided floating track"
-embedUrl: "https://play.example.com/roll-ball-3d/"
+embedUrl: "https://play.example.com/roll-ball-3d/index.html"
 categories:
   - "ball-games"
 tags:

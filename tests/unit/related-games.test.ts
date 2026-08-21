@@ -34,7 +34,7 @@ const game = (
       },
       coverAlt: `Cover art for ${id}`,
       screenshots: [],
-      embedUrl: `https://play.example.com/${id}/`,
+      embedUrl: `https://play.example.com/${id}/index.html`,
       categories: (options.categories ?? []).map((categoryId) => ({
         id: categoryId,
         collection: "categories" as const,

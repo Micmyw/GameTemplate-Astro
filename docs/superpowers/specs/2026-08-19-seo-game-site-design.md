@@ -18,7 +18,7 @@
 https://www.example.com/games/going-balls/
                           │
                           └── iframe
-                              https://play.example.com/going-balls/
+                              https://play.example.com/going-balls/index.html
 ```
 
 主站负责：
@@ -251,7 +251,7 @@ coverAlt: "Going Balls obstacle course gameplay"
 screenshots:
   - image: "../../assets/images/games/going-balls-01.webp"
     alt: "Ball rolling across a narrow floating track"
-embedUrl: "https://play.example.com/going-balls/"
+embedUrl: "https://play.example.com/going-balls/index.html"
 categories:
   - "ball-games"
   - "skill-games"
@@ -294,6 +294,7 @@ Markdown body用于：
 - `shortDescription`：20–200 字符；
 - `embedUrl`：必须为 HTTPS；
 - `embedUrl` Origin 必须位于允许列表；
+- `embedUrl` 路径必须精确以大小写敏感的 `/index.html` 结尾；
 - `categories`：至少 1 项；
 - `tags`：最多 12 项；
 - `controls`：至少 1 项；
@@ -468,7 +469,8 @@ getGamesForCategory(categoryId: string): Promise<CollectionEntry<"games">[]>
 
 - URL 协议必须为 `https:`；
 - Origin 必须匹配 `PUBLIC_GAME_ORIGINS`；
-- 路径必须以 `/` 结尾；
+- 路径必须精确以大小写敏感的 `/index.html` 结尾；
+- 允许经过审查的安全 query；
 - 不允许用户名、密码或 fragment；
 - 禁止 `javascript:`、`data:`、`blob:`。
 
@@ -574,20 +576,16 @@ CSP 需要允许游戏 iframe Origin。因为生产域名由环境变量决定�
 
 ## 13. R2 发布约定
 
-对象键：
+正式入口 URL 与对象键精确对应：
 
 ```text
-games/<slug>/releases/<version>/
-games/<slug>/current/
+public URL: https://play.example.com/<slug>/index.html
+object key: <slug>/index.html
+assets: <slug>/assets/<content-hashed-file>
+archive: _releases/<slug>/<version>/...
 ```
 
-首版使用更简单的稳定地址：
-
-```text
-https://play.example.com/<slug>/
-```
-
-实际文件由发布流程同步到该前缀。每个游戏包最低包含：
+每个游戏包最低包含：
 
 ```text
 index.html
@@ -600,9 +598,11 @@ assets/...
 - 禁止依赖主站 Cookie；
 - 禁止跳转顶层页面；
 - 生产使用自定义域名；
-- HTML 使用较短缓存；
-- 带 hash 的 JS/CSS/图片使用一年 immutable 缓存；
-- 更新时先上传新资源，再切换稳定路径；
+- 不假设 `/<slug>/` 自动映射到 `<slug>/index.html`；
+- 不添加 Worker 或 rewrite 隐藏 `index.html`；
+- `index.html` 使用 `no-cache` 或经过审查的短缓存；
+- 先上传带 hash 的 JS/CSS/图片并使用一年 immutable 缓存，最后上传 `index.html`；
+- 回滚时恢复同一个 `<slug>/index.html` key；
 - 每个游戏保存来源、许可证和版本记录。
 
 首版 Codex 只编写 R2 部署文档和验证清单，不实现在线上传后台。
