@@ -68,6 +68,9 @@ describe("site origin configuration", () => {
     });
 
     expect(config.site).toBe(site.url.origin);
+    expect(
+      config.integrations.map((integration) => integration.name),
+    ).not.toContain("game-site-admin-directory-index");
     expect(site.name).toBe("TestArcade");
   });
 

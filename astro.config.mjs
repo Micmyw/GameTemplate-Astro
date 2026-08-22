@@ -9,7 +9,6 @@ import {
 } from "./src/lib/site-origin.ts";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
-
 export const resolveAstroMode = (
   argumentsList = process.argv,
   nodeEnvironment = process.env.NODE_ENV,
@@ -41,11 +40,7 @@ export const createAstroConfig = (mode, root = projectRoot) => {
   return {
     site: site.origin,
     trailingSlash: "always",
-    integrations: [
-      sitemap({
-        filter: (page) => !page.includes("/admin/"),
-      }),
-    ],
+    integrations: [sitemap()],
   };
 };
 
