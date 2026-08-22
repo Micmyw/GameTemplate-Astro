@@ -22,7 +22,7 @@ Compared with the reviewed reference, this implementation:
 - stores state in a short-lived `__Host-` Secure, HttpOnly, SameSite=Lax Cookie;
 - validates state using fixed-size SHA-256 digests and a constant-work comparison;
 - constructs callback URLs only from validated `CMS_AUTH_ORIGIN` configuration;
-- restricts popup messages to validated `CMS_SITE_ORIGIN` instead of `*`;
+- restricts popup messages to validated `CMS_ADMIN_ORIGIN` instead of `*`;
 - validates the message sender Origin and opener window;
 - escapes `<` in script data and uses a fresh CSP nonce;
 - validates both configured Origins and permits HTTP only for explicit loopback tests;

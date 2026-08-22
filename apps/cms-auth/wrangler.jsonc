@@ -7,7 +7,7 @@
   "compatibility_flags": ["nodejs_compat"],
   // PR 5A placeholders only. Replace both exact Origins during PR 5B.
   "vars": {
-    "CMS_SITE_ORIGIN": "https://games.example.test",
+    "CMS_ADMIN_ORIGIN": "https://cms.example.test",
     "CMS_AUTH_ORIGIN": "https://cms-auth.example.test",
   },
   "observability": {

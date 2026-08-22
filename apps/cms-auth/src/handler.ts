@@ -23,7 +23,7 @@ type GitHubSecretBindings = {
 };
 
 export type RuntimeBindings = GitHubSecretBindings & {
-  CMS_SITE_ORIGIN: string;
+  CMS_ADMIN_ORIGIN: string;
   CMS_AUTH_ORIGIN: string;
 };
 
@@ -37,15 +37,15 @@ const callbackUri = (origins: ConfiguredOrigins): string =>
 
 const requestSourceIsAllowed = (
   request: Request,
-  siteOrigin: string,
+  adminOrigin: string,
 ): boolean => {
   const origin = request.headers.get("Origin");
-  if (origin !== null) return origin === siteOrigin;
+  if (origin !== null) return origin === adminOrigin;
 
   const referer = request.headers.get("Referer");
   if (referer === null) return true;
   try {
-    return new URL(referer).origin === siteOrigin;
+    return new URL(referer).origin === adminOrigin;
   } catch {
     return false;
   }
@@ -57,7 +57,7 @@ const authResponse = (
   origins: ConfiguredOrigins,
   cryptoApi: Crypto,
 ): Response => {
-  if (!requestSourceIsAllowed(request, origins.site)) {
+  if (!requestSourceIsAllowed(request, origins.admin)) {
     return textResponse("Request Origin is not allowed.", 403);
   }
 
@@ -76,11 +76,11 @@ const authResponse = (
 
 const callbackHtml = (
   token: string,
-  siteOrigin: string,
+  adminOrigin: string,
   cryptoApi: Crypto,
 ): Response => {
   const nonce = randomHex(32, cryptoApi);
-  const targetOrigin = safeScriptJson(siteOrigin);
+  const targetOrigin = safeScriptJson(adminOrigin);
   const authorizingMessage = safeScriptJson("authorizing:github");
   const successMessage = safeScriptJson(
     `authorization:github:success:${JSON.stringify({ token })}`,
@@ -184,7 +184,7 @@ const callbackResponse = async (
     });
   }
 
-  return callbackHtml(token, origins.site, dependencies.crypto);
+  return callbackHtml(token, origins.admin, dependencies.crypto);
 };
 
 export const handleRequest = async (
@@ -203,7 +203,7 @@ export const handleRequest = async (
   let origins: ConfiguredOrigins;
   try {
     origins = validateConfiguredOrigins(
-      env.CMS_SITE_ORIGIN,
+      env.CMS_ADMIN_ORIGIN,
       env.CMS_AUTH_ORIGIN,
     );
   } catch {
@@ -214,7 +214,7 @@ export const handleRequest = async (
     return textResponse("Request Origin is not allowed.", 403);
   }
   const requestOrigin = request.headers.get("Origin");
-  if (requestOrigin !== null && requestOrigin !== origins.site) {
+  if (requestOrigin !== null && requestOrigin !== origins.admin) {
     return textResponse("Request Origin is not allowed.", 403);
   }
 

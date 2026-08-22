@@ -6,7 +6,7 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 const encoder = new TextEncoder();
 
 export type ConfiguredOrigins = {
-  site: string;
+  admin: string;
   auth: string;
 };
 
@@ -44,12 +44,20 @@ const parseOrigin = (value: string, label: string): URL => {
 };
 
 export const validateConfiguredOrigins = (
-  siteOrigin: string,
+  adminOrigin: string,
   authOrigin: string,
-): ConfiguredOrigins => ({
-  site: parseOrigin(siteOrigin, "CMS_SITE_ORIGIN").origin,
-  auth: parseOrigin(authOrigin, "CMS_AUTH_ORIGIN").origin,
-});
+): ConfiguredOrigins => {
+  const admin = parseOrigin(adminOrigin, "CMS_ADMIN_ORIGIN").origin;
+  const auth = parseOrigin(authOrigin, "CMS_AUTH_ORIGIN").origin;
+
+  if (admin === auth) {
+    throw new Error(
+      "CMS_ADMIN_ORIGIN and CMS_AUTH_ORIGIN must use different Origins",
+    );
+  }
+
+  return { admin, auth };
+};
 
 export const randomHex = (
   byteLength: number,

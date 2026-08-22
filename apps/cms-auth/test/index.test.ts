@@ -6,6 +6,7 @@ import {
   STATE_COOKIE_NAME,
   TOKEN_EXCHANGE_TIMEOUT_MS,
   constantTimeEqual,
+  validateConfiguredOrigins,
 } from "../src/security";
 
 type TestEnv = Env & {
@@ -19,13 +20,13 @@ type FetchLike = (
 ) => Promise<Response>;
 
 const AUTH_ORIGIN = "https://cms-auth.example.test";
-const SITE_ORIGIN = "https://games.example.test";
+const ADMIN_ORIGIN = "https://cms.example.test";
 const CODE = "authorization-code-fixture";
 const SECRET = "client-secret-fixture";
 const TOKEN = "access-token-fixture";
 
 const env = (overrides: Partial<TestEnv> = {}): TestEnv => ({
-  CMS_SITE_ORIGIN: SITE_ORIGIN,
+  CMS_ADMIN_ORIGIN: ADMIN_ORIGIN,
   CMS_AUTH_ORIGIN: AUTH_ORIGIN,
   GITHUB_OAUTH_ID: "client-id-fixture",
   GITHUB_OAUTH_SECRET: SECRET,
@@ -43,7 +44,7 @@ const successFetch =
 
 const requestAuth = (
   testEnv = env(),
-  headers: HeadersInit = { Origin: SITE_ORIGIN },
+  headers: HeadersInit = { Origin: ADMIN_ORIGIN },
 ) =>
   handleRequest(new Request(`${AUTH_ORIGIN}/auth`, { headers }), testEnv, {
     fetch: successFetch(),
@@ -137,7 +138,7 @@ describe("GET /auth", () => {
     expect(cookie).not.toContain("Domain=");
   });
 
-  it("rejects an explicit request Origin outside CMS_SITE_ORIGIN", async () => {
+  it("rejects an explicit request Origin outside CMS_ADMIN_ORIGIN", async () => {
     const response = await requestAuth(env(), {
       Origin: "https://attacker.example.test",
     });
@@ -208,7 +209,7 @@ describe("GET /callback validation", () => {
     expect(body).not.toContain("sensitive-upstream-description");
   });
 
-  it("rejects an explicit callback Origin outside CMS_SITE_ORIGIN", async () => {
+  it("rejects an explicit callback Origin outside CMS_ADMIN_ORIGIN", async () => {
     const state = cookieValue(await requestAuth());
     const query = new URLSearchParams({ code: CODE, state });
     const response = await handleRequest(
@@ -334,14 +335,14 @@ describe("GitHub token exchange", () => {
 });
 
 describe("callback HTML", () => {
-  it("uses Decap's GitHub messages with the exact site Origin and no wildcard", async () => {
+  it("uses Decap's GitHub messages with the exact Admin Origin and no wildcard", async () => {
     const state = cookieValue(await requestAuth());
     const response = await requestCallback(state);
     const html = await response.text();
 
     expect(response.status).toBe(200);
     expect(html).toContain(
-      `const targetOrigin = ${JSON.stringify(SITE_ORIGIN)}`,
+      `const targetOrigin = ${JSON.stringify(ADMIN_ORIGIN)}`,
     );
     expect(html).toContain("authorizing:github");
     expect(html).toContain("authorization:github:success:");
@@ -401,10 +402,16 @@ describe("callback HTML", () => {
 });
 
 describe("routing and configuration", () => {
+  it("rejects equal CMS Admin and OAuth Worker Origins", () => {
+    expect(() => validateConfiguredOrigins(AUTH_ORIGIN, AUTH_ORIGIN)).toThrow(
+      /different Origins/i,
+    );
+  });
+
   it.each([
-    ["CMS_SITE_ORIGIN", "https://games.example.test/path"],
-    ["CMS_SITE_ORIGIN", "http://games.example.test"],
-    ["CMS_SITE_ORIGIN", "https://user:pass@games.example.test"],
+    ["CMS_ADMIN_ORIGIN", "https://cms.example.test/path"],
+    ["CMS_ADMIN_ORIGIN", "http://cms.example.test"],
+    ["CMS_ADMIN_ORIGIN", "https://user:pass@cms.example.test"],
     ["CMS_AUTH_ORIGIN", "https://cms-auth.example.test?query=1"],
     ["CMS_AUTH_ORIGIN", "https://cms-auth.example.test#fragment"],
     ["CMS_AUTH_ORIGIN", "not-an-origin"],
@@ -417,12 +424,12 @@ describe("routing and configuration", () => {
 
   it("allows explicit localhost HTTP Origins for local tests only", async () => {
     const localEnv = env({
-      CMS_SITE_ORIGIN: "http://localhost:4321",
+      CMS_ADMIN_ORIGIN: "http://localhost:4322",
       CMS_AUTH_ORIGIN: "http://127.0.0.1:8787",
     });
     const response = await handleRequest(
       new Request("http://127.0.0.1:8787/auth", {
-        headers: { Origin: "http://localhost:4321" },
+        headers: { Origin: "http://localhost:4322" },
       }),
       localEnv,
       { fetch: successFetch() },
@@ -434,7 +441,7 @@ describe("routing and configuration", () => {
   it("rejects a request served from an Origin other than CMS_AUTH_ORIGIN", async () => {
     const response = await handleRequest(
       new Request("https://wrong-auth.example.test/auth", {
-        headers: { Origin: SITE_ORIGIN },
+        headers: { Origin: ADMIN_ORIGIN },
       }),
       env(),
       { fetch: successFetch() },
