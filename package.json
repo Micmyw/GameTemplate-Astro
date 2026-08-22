@@ -6,9 +6,10 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "run-p dev:astro dev:cms",
-    "dev:astro": "astro dev --host 127.0.0.1",
-    "dev:cms": "cross-env BIND_HOST=127.0.0.1 ORIGIN=http://127.0.0.1:4321 decap-server",
+    "dev": "run-p dev:astro dev:cms-admin dev:cms-proxy",
+    "dev:astro": "astro dev --host 127.0.0.1 --port 4321",
+    "dev:cms-admin": "npm --prefix apps/cms-admin run dev",
+    "dev:cms-proxy": "cross-env BIND_HOST=127.0.0.1 ORIGIN=http://127.0.0.1:4322 decap-server",
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",

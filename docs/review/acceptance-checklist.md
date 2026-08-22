@@ -21,7 +21,7 @@ Use this checklist for every game-site pull request. Mark items that are outside
 
 - [ ] Each indexable page has one useful H1 and a unique, non-empty title.
 - [ ] Canonical, description, robots, structured data, and Sitemap output match the current PR's requirements.
-- [ ] Draft or admin content is absent from indexable output.
+- [ ] Draft content and all CMS Admin HTML are absent from the public-site output.
 - [ ] Core internal links use ordinary anchors and resolve to built routes.
 
 ## Game embedding

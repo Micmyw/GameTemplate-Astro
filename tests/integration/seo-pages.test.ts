@@ -322,7 +322,7 @@ describe("robots and Sitemap output", () => {
     });
   });
 
-  it("excludes non-indexable URLs from Sitemap while preserving the Admin route", () => {
+  it("excludes non-indexable URLs and the isolated CMS Admin from the main build", () => {
     const textFiles = listTextFiles();
     const output = textFiles
       .map((file) => readFileSync(file, "utf8"))
@@ -341,6 +341,6 @@ describe("robots and Sitemap output", () => {
     expect(existsSync(routeFile("/games/obstacle-orbit/"))).toBe(false);
     expect(existsSync(routeFile("/category/seo-empty-archive/"))).toBe(false);
     expect(existsSync(routeFile("/category/seo-draft-lane/"))).toBe(false);
-    expect(existsSync(routeFile("/admin/"))).toBe(true);
+    expect(existsSync(routeFile("/admin/"))).toBe(false);
   });
 });

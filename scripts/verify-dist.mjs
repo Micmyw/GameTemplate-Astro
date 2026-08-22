@@ -541,8 +541,7 @@ function validatePage(
 ) {
   const { $, file, route } = page;
   const isNotFound = route === "/404.html";
-  const isAdmin = route === "/admin/" || route.startsWith("/admin/");
-  const isNonIndexable = isNotFound || isAdmin;
+  const isNonIndexable = isNotFound;
 
   const titles = $("title");
   if (titles.length !== 1 || !titles.first().text().trim()) {
@@ -558,13 +557,11 @@ function validatePage(
     }
   }
 
-  if (!isAdmin) {
-    const headings = $("h1");
-    if (headings.length !== 1 || !headings.first().text().trim()) {
-      issues.push(
-        `dist/${file} must contain exactly one non-empty H1; found ${headings.length}`,
-      );
-    }
+  const headings = $("h1");
+  if (headings.length !== 1 || !headings.first().text().trim()) {
+    issues.push(
+      `dist/${file} must contain exactly one non-empty H1; found ${headings.length}`,
+    );
   }
 
   page.robots = readSingletonAttribute(
@@ -577,12 +574,6 @@ function validatePage(
   if (isNotFound) {
     if (!page.robots?.toLocaleLowerCase().includes("noindex")) {
       issues.push("dist/404.html must contain noindex in its robots metadata");
-    }
-  } else if (isAdmin) {
-    if (!page.robots?.toLocaleLowerCase().includes("noindex")) {
-      issues.push(
-        `Admin page dist/${file} must contain noindex in its robots metadata`,
-      );
     }
   } else if (page.robots?.toLocaleLowerCase().includes("noindex")) {
     issues.push(`Indexable page dist/${file} must not be marked noindex`);
@@ -1098,6 +1089,11 @@ export async function verifyDist(distDirectory, options = {}) {
     ),
   );
   const issues = [];
+  if (outputFiles.has("admin/index.html")) {
+    issues.push(
+      "Public static output must not include dist/admin/index.html; CMS Admin belongs to its dedicated Origin",
+    );
+  }
   let expectedSiteOrigin;
   if (options.expectedSiteOrigin) {
     const expectedUrl = readHttpsUrl(

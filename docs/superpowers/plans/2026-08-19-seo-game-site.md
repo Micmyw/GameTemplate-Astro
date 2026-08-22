@@ -261,7 +261,7 @@ Do not create or commit `.env`.
 
 - set `site` from `PUBLIC_SITE_URL`, falling back to `https://example.com`;
 - add the Sitemap integration;
-- filter `/admin/`;
+- keep CMS Admin out of the Astro application entirely;
 - preserve Astro's default static output;
 - never import a Cloudflare adapter.
 
@@ -276,11 +276,7 @@ const site = process.env.PUBLIC_SITE_URL ?? "https://example.com";
 export default defineConfig({
   site,
   trailingSlash: "always",
-  integrations: [
-    sitemap({
-      filter: (page) => !page.includes("/admin/"),
-    }),
-  ],
+  integrations: [sitemap()],
 });
 ```
 
@@ -406,10 +402,6 @@ Create `public/_headers` exactly with these initial rules:
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   X-Frame-Options: DENY
-
-/admin/*
-  X-Robots-Tag: noindex, nofollow
-  Cache-Control: no-store
 
 https://:version.:subdomain.workers.dev/*
   X-Robots-Tag: noindex, nofollow
@@ -1249,22 +1241,29 @@ PR 5 is accepted in two checkpoints:
 
 Production acceptance is not complete until PR 5B provides a real CMS login, a content edit committed to GitHub, and the resulting site CI/build evidence.
 
-## Task 13: Add Decap CMS local authoring
+## Task 13: Add isolated Decap CMS local authoring
 
 **Files:**
-- Create: `public/admin/index.html`
-- Create: `public/admin/config.yml`
-- Create: `public/admin/preview.css`
+- Create: `apps/cms-admin/package.json`
+- Create: `apps/cms-admin/package-lock.json`
+- Create: `apps/cms-admin/wrangler.jsonc`
+- Create: `apps/cms-admin/public/index.html`
+- Create: `apps/cms-admin/public/config.yml`
+- Create: `apps/cms-admin/public/preview.css`
 - Modify: `package.json`
+- Modify: `astro.config.mjs`
+- Modify: `scripts/verify-dist.mjs`
 - Test: `tests/unit/decap-config.test.ts`
+- Test: `tests/unit/cms-origin-isolation.test.ts`
 
 **Interfaces:**
 - Consumes the exact Games and Categories schemas.
 - Produces Markdown files compatible with `src/content.config.ts`.
+- Serves CMS Admin from a dedicated Wrangler Static Assets Origin, never from the public-site Origin.
 
 - [ ] **Step 1: Write failing schema-parity tests**
 
-Parse `public/admin/config.yml` and assert:
+Parse `apps/cms-admin/public/config.yml` and assert:
 
 - every required game field exists;
 - field names exactly match Astro schema names;
@@ -1272,7 +1271,9 @@ Parse `public/admin/config.yml` and assert:
 - status options are `draft` and `published`;
 - media paths point to `src/assets/images/games`;
 - no original template repository or DecapBridge site ID remains;
-- `/admin/` is excluded from indexing.
+- the public static build does not contain `/admin/`;
+- the Admin app is a binding-free static-assets project;
+- no advertising or analytics script is present on the Admin Origin.
 
 Install only a small YAML parser:
 
@@ -1282,7 +1283,7 @@ npm install -D yaml
 
 - [ ] **Step 2: Add pinned CMS client**
 
-Use Decap CMS `3.15.1` in `public/admin/index.html`, not an unbounded `latest` CDN URL.
+Use Decap CMS `3.15.1` in `apps/cms-admin/public/index.html`, not an unbounded `latest` CDN URL. Keep the PR 5A local-hostname guard. Decap stores its authenticated user object, including the returned GitHub token, in origin-scoped `localStorage`; CMS Admin must remain on a dedicated Origin.
 
 - [ ] **Step 3: Configure local backend**
 
@@ -1297,9 +1298,10 @@ Scripts:
 ```json
 {
   "scripts": {
-    "dev:astro": "astro dev --host 127.0.0.1",
-    "dev:cms": "cross-env BIND_HOST=127.0.0.1 ORIGIN=http://127.0.0.1:4321 decap-server",
-    "dev": "run-p dev:astro dev:cms"
+    "dev:astro": "astro dev --host 127.0.0.1 --port 4321",
+    "dev:cms-admin": "npm --prefix apps/cms-admin run dev",
+    "dev:cms-proxy": "cross-env BIND_HOST=127.0.0.1 ORIGIN=http://127.0.0.1:4322 decap-server",
+    "dev": "run-p dev:astro dev:cms-admin dev:cms-proxy"
   }
 }
 ```
@@ -1322,8 +1324,8 @@ Expected: new content builds without manual correction.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add public/admin package.json package-lock.json tests/unit/decap-config.test.ts
-git commit -m "feat: add local Git-backed content editor"
+git add apps/cms-admin package.json astro.config.mjs scripts/verify-dist.mjs tests
+git commit -m "refactor: isolate CMS administration origin"
 ```
 
 ## Task 14: Add a separate Cloudflare GitHub OAuth Worker
@@ -1336,7 +1338,7 @@ git commit -m "feat: add local Git-backed content editor"
 - Create: `apps/cms-auth/test/index.test.ts`
 - Create: `apps/cms-auth/LICENSES.md`
 - Create: `docs/deployment/cms-auth.md`
-- Modify: `public/admin/config.yml`
+- Modify: `apps/cms-admin/public/config.yml`
 
 **Interfaces:**
 - Produces:
@@ -1345,7 +1347,7 @@ git commit -m "feat: add local Git-backed content editor"
 - Consumes Cloudflare secrets:
   - `GITHUB_OAUTH_ID`
   - `GITHUB_OAUTH_SECRET`
-- Allows only configured `CMS_SITE_ORIGIN`.
+- Allows only configured `CMS_ADMIN_ORIGIN`.
 
 - [ ] **Step 1: Select and record the upstream**
 
@@ -1398,7 +1400,7 @@ Never store values in `.dev.vars.example`.
 
 - [ ] **Step 5: Preserve the PR 5A backend boundary**
 
-`public/admin/config.yml` must use the real repository while PR 5A remains local-only:
+`apps/cms-admin/public/config.yml` must use the real repository while PR 5A remains local-only:
 
 ```yaml
 backend:
@@ -1440,19 +1442,19 @@ npx wrangler deploy --dry-run
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/cms-auth docs/deployment/cms-auth.md public/admin/config.yml
-git commit -m "feat: add Cloudflare OAuth proxy for CMS"
+git add apps/cms-auth docs/deployment/cms-auth.md
+git commit -m "refactor: target OAuth callbacks at CMS admin origin"
 ```
 
 ## PR 5A Completion Gate
 
 Required code and local evidence:
 
-- local CMS screenshots showing the Admin UI, existing collections, and one complex game form;
+- local CMS screenshots from `http://127.0.0.1:4322/` showing the Admin UI, existing collections, and one complex game form;
 - automated CMS-shaped Markdown round-trip through Astro check/build;
 - OAuth Worker tests and dry-run output;
 - exact-Origin `postMessage`, state Cookie, callback validation, and security-header evidence;
-- root and `apps/cms-auth` CI jobs without secrets or deployment;
+- separate root, `apps/cms-admin`, and `apps/cms-auth` CI jobs without secrets or deployment;
 - no `base_url`, no real OAuth App, no real secret, no Worker deployment, and no production login claim;
 - explicit PR 5B manual dependency list.
 
@@ -1462,10 +1464,12 @@ PR 5A must be independently accepted before PR 5B begins.
 
 Required manual evidence:
 
+- dedicated public-site, CMS Admin, and CMS Auth Origins;
 - local CMS screenshot;
 - GitHub OAuth App callback configuration, with secret hidden;
 - Worker dry-run output;
-- successful login on preview;
+- successful login on the dedicated CMS Admin Origin;
+- proof that `decap-cms-user` exists only in CMS Admin localStorage and is inaccessible from the public-site Origin;
 - a test content edit producing a Git commit;
 - resulting site build passing;
 - no credentials in Git history.

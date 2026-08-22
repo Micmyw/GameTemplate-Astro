@@ -79,3 +79,31 @@ jobs:
 
       - name: Validate the Worker bundle
         run: npx wrangler deploy --dry-run
+
+  cms-admin:
+    name: CMS Admin static asset quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/cms-admin
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/cms-admin/package-lock.json
+
+      - name: Install CMS Admin dependencies
+        run: npm ci
+
+      - name: Check CMS Admin formatting
+        run: npm run format:check
+
+      - name: Validate the CMS Admin static asset bundle
+        run: npx wrangler deploy --dry-run

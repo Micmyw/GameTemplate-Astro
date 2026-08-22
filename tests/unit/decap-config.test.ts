@@ -16,8 +16,9 @@ import { parseAllowedGameOrigins } from "../../src/lib/embed-url";
 type UnknownRecord = Record<string, unknown>;
 
 const projectRoot = resolve(import.meta.dirname, "../..");
-const configPath = resolve(projectRoot, "public/admin/config.yml");
-const adminPath = resolve(projectRoot, "public/admin/index.html");
+const cmsAdminRoot = resolve(projectRoot, "apps/cms-admin");
+const configPath = resolve(cmsAdminRoot, "public/config.yml");
+const adminPath = resolve(cmsAdminRoot, "public/index.html");
 
 const asRecord = (value: unknown, label: string): UnknownRecord => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -296,10 +297,10 @@ describe("Decap CMS configuration", () => {
   });
 
   it.each([
-    ["http://localhost:4321/admin/", true],
-    ["http://127.0.0.1:4321/admin/", true],
-    ["http://[::1]:4321/admin/", true],
-    ["https://preview.example.test/admin/", false],
+    ["http://localhost:4322/", true],
+    ["http://127.0.0.1:4322/", true],
+    ["http://[::1]:4322/", true],
+    ["https://cms.example.test/", false],
   ])(
     "loads the CMS client only for approved local hostname %s",
     async (url, shouldLoad) => {

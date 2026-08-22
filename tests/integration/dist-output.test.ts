@@ -213,18 +213,6 @@ const page = ({
 </html>
 `;
 
-const adminPage = () => `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width">
-    ${robotsTag("noindex, nofollow")}
-    <title>Game Content Administration</title>
-  </head>
-  <body><p role="status">Loading the local content administration interface…</p></body>
-</html>
-`;
-
 const sitemap = (urls: string[]) =>
   `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls
     .map((url) => `<url><loc>${url}</loc></url>`)
@@ -284,7 +272,6 @@ const validFixture = (): FixtureFiles => ({
     body: `<a href="/">Return home</a>`,
     robots: "noindex, follow",
   }),
-  "admin/index.html": adminPage(),
   "robots.txt": `User-agent: *\nAllow: /\nDisallow: /admin/\nSitemap: ${SITE_ORIGIN}/sitemap-index.xml\n`,
   "sitemap-index.xml": `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>${SITE_ORIGIN}/sitemap-0.xml</loc></sitemap></sitemapindex>`,
   "sitemap-0.xml": sitemap(sitemapUrls),
@@ -362,7 +349,6 @@ describe("launch-quality dist verification", () => {
     expect(new Set(result.checkedFiles)).toEqual(
       new Set([
         "404.html",
-        "admin/index.html",
         "category/ball-games/index.html",
         "games/alpha-roll/index.html",
         "games/index.html",
@@ -383,6 +369,22 @@ describe("launch-quality dist verification", () => {
     const distDirectory = await createDist(files);
 
     await expect(verifyFixture(distDirectory)).resolves.toBeTruthy();
+  });
+
+  it("rejects a CMS Admin page in the main static build", async () => {
+    const files = validFixture();
+    files["admin/index.html"] = page({
+      route: "/admin/",
+      title: "Unexpected CMS Admin | Fixture Arcade",
+      description: "A CMS Admin page must never ship in the public site build.",
+      h1: "Unexpected CMS Admin",
+      robots: "noindex, nofollow",
+    });
+    const distDirectory = await createDist(files);
+
+    await expect(verifyFixture(distDirectory)).rejects.toThrow(
+      /must not include.*admin|admin.*must not include/i,
+    );
   });
 
   it("does not echo rejected GamePlayer credentials", async () => {
@@ -1118,18 +1120,6 @@ describe("launch-quality dist verification", () => {
           files,
           "404.html",
           robotsTag("noindex, follow"),
-          robotsTag("index, follow"),
-        );
-      },
-    },
-    {
-      name: "an Admin page without noindex",
-      expected: /admin.*noindex|noindex.*admin/i,
-      mutate: (files) => {
-        replaceRequired(
-          files,
-          "admin/index.html",
-          robotsTag("noindex, nofollow"),
           robotsTag("index, follow"),
         );
       },
