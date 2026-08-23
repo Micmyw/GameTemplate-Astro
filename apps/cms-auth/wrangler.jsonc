@@ -5,7 +5,7 @@
   "tsconfig": "./tsconfig.json",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
-  // PR 5A placeholders only. Replace both exact Origins during PR 5B.
+  // Test defaults. Production has a separate environment below.
   "vars": {
     "CMS_ADMIN_ORIGIN": "https://cms.example.test",
     "CMS_AUTH_ORIGIN": "https://cms-auth.example.test",
@@ -18,6 +18,24 @@
     },
     "traces": {
       "enabled": false,
+    },
+  },
+  "env": {
+    "production": {
+      // GATE A placeholders. verify:production-config rejects .invalid.
+      "vars": {
+        "CMS_ADMIN_ORIGIN": "https://cms.placeholder.invalid",
+        "CMS_AUTH_ORIGIN": "https://cms-auth.placeholder.invalid",
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "invocation_logs": false,
+        },
+        "traces": {
+          "enabled": false,
+        },
+      },
     },
   },
 }

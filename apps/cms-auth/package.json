@@ -12,10 +12,14 @@
     "format": "prettier --ignore-path ../../.prettierignore --write .",
     "format:check": "prettier --ignore-path ../../.prettierignore --check .",
     "cf:typegen": "wrangler types",
-    "deploy:dry": "wrangler deploy --dry-run"
+    "verify:production-config": "node scripts/verify-production-config.mjs",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "deploy:production:dry": "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --dry-run --env production",
+    "deploy:production": "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --env production"
   },
   "devDependencies": {
     "cheerio": "1.2.0",
+    "jsonc-parser": "3.3.1",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "vitest": "4.1.11",

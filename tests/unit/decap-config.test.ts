@@ -89,7 +89,7 @@ afterEach(async () => {
 });
 
 describe("Decap CMS configuration", () => {
-  it("targets the real GitHub repository while keeping production OAuth absent in PR 5A", () => {
+  it("targets the real GitHub repository through the configured OAuth Worker", () => {
     const backend = asRecord(config.backend, "backend");
 
     expect(backend).toMatchObject({
@@ -97,9 +97,9 @@ describe("Decap CMS configuration", () => {
       repo: "Micmyw/GameTemplate-Astro",
       branch: "main",
       auth_scope: "public_repo",
+      base_url: "https://cms-auth.placeholder.invalid",
+      auth_endpoint: "/auth",
     });
-    expect(backend).not.toHaveProperty("base_url");
-    expect(backend).not.toHaveProperty("auth_endpoint");
 
     const serialized = JSON.stringify(config).toLowerCase();
     expect(serialized).not.toContain("decapbridge");
@@ -300,9 +300,12 @@ describe("Decap CMS configuration", () => {
     ["http://localhost:4322/", true],
     ["http://127.0.0.1:4322/", true],
     ["http://[::1]:4322/", true],
+    ["https://cms.placeholder.invalid/", true],
     ["https://cms.example.test/", false],
+    ["https://sub.cms.placeholder.invalid/", false],
+    ["https://cms.placeholder.invalid.attacker.test/", false],
   ])(
-    "loads the CMS client only for approved local hostname %s",
+    "loads the CMS client only for an exact approved hostname at %s",
     async (url, shouldLoad) => {
       const window = new Window({ url });
       windows.push(window);
@@ -339,4 +342,15 @@ describe("Decap CMS configuration", () => {
       }
     },
   );
+
+  it("stores one exact production hostname without suffix or referrer matching", () => {
+    const $ = load(adminHtml);
+    const inlineScript = $("script:not([src])").text();
+
+    expect($("body").attr("data-cms-production-hostname")).toBe(
+      "cms.placeholder.invalid",
+    );
+    expect(inlineScript).not.toContain(".endsWith(");
+    expect(inlineScript).not.toContain("document.referrer");
+  });
 });

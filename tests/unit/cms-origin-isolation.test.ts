@@ -82,13 +82,24 @@ describe("CMS token Origin isolation", () => {
     expect(scripts).toMatchObject({
       dev: "wrangler dev --ip 127.0.0.1 --port 4322",
       "format:check": "prettier --ignore-path ../../.prettierignore --check .",
+      "verify:production-config": "node scripts/verify-production-config.mjs",
       "deploy:dry": "wrangler deploy --dry-run",
+      "deploy:production:dry":
+        "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --dry-run --env production",
+      "deploy:production":
+        "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --env production",
     });
     expect(scripts).not.toHaveProperty("deploy");
     expect(wrangler).toMatchObject({
       name: "game-site-cms-admin",
       compatibility_date: "2026-08-22",
       assets: { directory: "./public" },
+      env: {
+        production: {
+          name: "game-site-cms-admin-production",
+          assets: { directory: "./public" },
+        },
+      },
     });
     for (const forbidden of [
       "main",

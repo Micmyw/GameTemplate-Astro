@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify:dist": "node scripts/verify-dist.mjs",
+    "verify:production-config": "node scripts/verify-production-config.mjs",
     "game:validate": "node scripts/validate-game-package.mjs",
     "deploy:dry": "npm run build && npm run verify:dist && wrangler deploy --dry-run",
     "deploy": "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && wrangler deploy"

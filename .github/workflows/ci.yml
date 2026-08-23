@@ -74,6 +74,12 @@ jobs:
       - name: Check Worker TypeScript
         run: npm run check
 
+      - name: Regenerate Worker binding types
+        run: npx wrangler types
+
+      - name: Verify generated Worker types are current
+        run: git diff --exit-code -- worker-configuration.d.ts
+
       - name: Run Worker tests
         run: npm run test
 

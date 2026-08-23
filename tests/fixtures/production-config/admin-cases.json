@@ -1,0 +1,52 @@
+[
+  {
+    "name": "missing base_url",
+    "mutation": "removeBaseUrl",
+    "expectedCode": "ADMIN_BASE_URL"
+  },
+  {
+    "name": "wrong auth endpoint",
+    "mutation": "wrongAuthEndpoint",
+    "expectedCode": "ADMIN_AUTH_ENDPOINT"
+  },
+  {
+    "name": "missing local backend",
+    "mutation": "removeLocalBackend",
+    "expectedCode": "ADMIN_LOCAL_BACKEND"
+  },
+  {
+    "name": "mismatched production hostname",
+    "mutation": "mismatchHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "wildcard production hostname",
+    "mutation": "wildcardHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "suffix hostname matching",
+    "mutation": "suffixGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "referrer hostname matching",
+    "mutation": "refererGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "missing no-store header",
+    "mutation": "removeNoStore",
+    "expectedCode": "ADMIN_HEADERS"
+  },
+  {
+    "name": "analytics code",
+    "mutation": "analyticsScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "advertising code",
+    "mutation": "advertisingScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  }
+]

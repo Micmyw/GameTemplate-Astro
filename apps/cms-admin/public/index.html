@@ -33,6 +33,7 @@
   <body
     data-cms-src="https://unpkg.com/decap-cms@3.15.1/dist/decap-cms.js"
     data-cms-integrity="sha384-in6eHztHveqQ7uMZ1fDaKlDmacQLFuLH2wWrFTiymyuS8zQ5bixwL8U3AeRi8h/L"
+    data-cms-production-hostname="cms.placeholder.invalid"
   >
     <!--
       Security invariant: Decap 3.15.1 persists authenticated user data,
@@ -50,10 +51,14 @@
     <script>
       (() => {
         const localHostnames = new Set(["localhost", "127.0.0.1", "::1"]);
+        const approvedHostnames = new Set([
+          ...localHostnames,
+          document.body.dataset.cmsProductionHostname,
+        ]);
         const status = document.getElementById("cms-status");
         const hostname = window.location.hostname.replace(/^\[|\]$/g, "");
 
-        if (!localHostnames.has(hostname)) {
+        if (!approvedHostnames.has(hostname)) {
           status.textContent =
             "CMS authentication is not configured for this deployment.";
           return;

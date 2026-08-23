@@ -253,7 +253,7 @@ try {
   });
 
   await waitForReady(wrangler, () => output);
-  for (const pathname of ["/", "/config.yml", "/preview.css"]) {
+  for (const pathname of ["/", "/config.yml", "/preview.css", "/favicon.svg"]) {
     await verifyAsset(pathname);
   }
   await verifyHeadersFileIsPrivate();
@@ -275,7 +275,7 @@ if (failure) {
   process.exitCode = 1;
 } else {
   console.log(
-    "Verified CMS Admin security headers on /, /config.yml, and /preview.css.",
+    "Verified CMS Admin security headers on /, /config.yml, /preview.css, and /favicon.svg.",
   );
   console.log("Verified /_headers returns 404 and is not publicly served.");
   console.log(`Verified Wrangler stopped and ${HOST}:${PORT} is closed.`);
