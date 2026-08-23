@@ -138,6 +138,46 @@ describe("CMS token Origin isolation", () => {
     expect(workerSource).not.toContain(legacyBinding);
   });
 
+  it("defines restrictive security headers for every CMS Admin response", async () => {
+    const headersPath = resolve(cmsAdminPublic, "_headers");
+
+    expect(existsSync(headersPath)).toBe(true);
+
+    const headers = await readFile(headersPath, "utf8");
+
+    expect(headers).toContain("X-Robots-Tag: noindex, nofollow");
+    expect(headers).toContain("Cache-Control: no-store");
+    expect(headers).toContain("X-Content-Type-Options: nosniff");
+    expect(headers).toContain(
+      "Referrer-Policy: strict-origin-when-cross-origin",
+    );
+    expect(headers).toContain("X-Frame-Options: DENY");
+    expect(headers).toContain("frame-ancestors 'none'");
+    expect(headers).toContain("base-uri 'none'");
+    expect(headers).toContain("object-src 'none'");
+    expect(headers).not.toContain("Access-Control-Allow-Origin: *");
+    expect(headers).not.toContain("unsafe-inline");
+    expect(headers).not.toContain("unsafe-eval");
+    expect(headers).not.toContain("Cross-Origin-Opener-Policy: same-origin");
+  });
+
+  it("serves a local SVG favicon from the CMS Admin document", async () => {
+    const faviconPath = resolve(cmsAdminPublic, "favicon.svg");
+    const html = await readFile(resolve(cmsAdminPublic, "index.html"), "utf8");
+    const $ = load(html);
+
+    expect($("link[rel='icon'][type='image/svg+xml']").attr("href")).toBe(
+      "/favicon.svg",
+    );
+    expect(existsSync(faviconPath)).toBe(true);
+
+    const favicon = await readFile(faviconPath, "utf8");
+    const svg = load(favicon, { xml: true });
+
+    expect(svg("svg[xmlns='http://www.w3.org/2000/svg']")).toHaveLength(1);
+    expect(svg("svg").attr("viewBox")).toBe("0 0 64 64");
+  });
+
   it("keeps advertising and analytics code off the CMS Admin Origin", async () => {
     const cmsSource = (await readSourceTree(["apps/cms-admin/public"]))
       .toLowerCase()
