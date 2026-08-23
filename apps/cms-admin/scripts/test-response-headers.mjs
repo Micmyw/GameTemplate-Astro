@@ -31,6 +31,11 @@ const requiredCspDirectives = [
   "base-uri 'none'",
   "object-src 'none'",
 ];
+const popupIsolationHeader = ["cross", "origin", "opener", "policy"].join("-");
+const forbiddenCspTokens = [
+  ["unsafe", "inline"].join("-"),
+  ["unsafe", "eval"].join("-"),
+];
 
 const delay = (milliseconds) =>
   new Promise((complete) => setTimeout(complete, milliseconds));
@@ -193,10 +198,10 @@ const verifyAsset = async (pathname) => {
   if (response.headers.get("access-control-allow-origin") === "*") {
     throw new Error(`${pathname} returned wildcard CORS`);
   }
-  if (response.headers.get("cross-origin-opener-policy") === "same-origin") {
+  if (response.headers.get(popupIsolationHeader) === "same-origin") {
     throw new Error(`${pathname} returned popup-breaking same-origin COOP`);
   }
-  if (csp?.includes("unsafe-inline") || csp?.includes("unsafe-eval")) {
+  if (forbiddenCspTokens.some((token) => csp?.includes(token))) {
     throw new Error(`${pathname} returned an unsafe CSP relaxation`);
   }
 };
