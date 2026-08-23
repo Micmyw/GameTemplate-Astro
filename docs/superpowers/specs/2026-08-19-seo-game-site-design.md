@@ -656,6 +656,7 @@ cms.example.com/
 OAuth Worker：
 
 - 独立目录 `apps/cms-auth/`；
+- CMS Admin 独立目录 `apps/cms-admin/`，不得回到公开站点 pathname；
 - 独立 `wrangler.jsonc`；
 - secrets：GitHub Client ID 和 Client Secret；
 - 不记录 access token；

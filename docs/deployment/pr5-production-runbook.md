@@ -9,7 +9,7 @@ Start this runbook only when all of these conditions are true:
 1. PR 5A has an independent `ACCEPTED` review.
 2. PR 5A has been merged into `main`.
 3. CI for the merge commit on `main` is green.
-4. The user has explicitly sent `CONTINUE PR 5B`.
+4. The user has explicitly continued the remaining master plan.
 5. Every input in the next section has been supplied or confirmed.
 6. The user has chosen a dedicated GitHub editing account, or has explicitly accepted the wider `public_repo` access of the primary account.
 
@@ -19,7 +19,7 @@ PR 5B is a project phase name. Its GitHub pull request may be numbered `#6` or h
 
 ## Required production inputs
 
-Record the approved, non-secret values in the operator worksheet. Use actual values during PR 5B; placeholders are used in this document only.
+Record the approved, non-secret values in the operator worksheet. Use actual values for deployment and live evidence. During repository-only preparation, explicit `.placeholder.invalid` values may be present, but the production validators must reject them and no deployment or OAuth-complete claim is permitted.
 
 | Input                  | Requirement                                                                                               |
 | ---------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ git status --short
 Confirm that the accepted PR 5A merge SHA is an ancestor of both local and remote `main`, that main CI passed for that merge, and that the worktree is clean. Create a new branch:
 
 ```bash
-git switch -c feat/game-cms-production
+git worktree add .worktrees/game-cms-production -b feat/game-cms-production origin/main
 ```
 
 Do not continue on `feat/game-cms` and do not rewrite PR 5A history.
@@ -138,6 +138,7 @@ npm run format:check
 npm run check
 npm run test
 npx wrangler types
+npm run verify:production-config
 npx wrangler deploy --dry-run --env production
 cd ../..
 ```
