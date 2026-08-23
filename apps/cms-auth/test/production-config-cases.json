@@ -1,0 +1,57 @@
+[
+  {
+    "name": "missing production environment",
+    "mutation": "removeProduction",
+    "expectedCode": "AUTH_PRODUCTION_ENV"
+  },
+  {
+    "name": "wrong production Admin Origin",
+    "mutation": "wrongAdminOrigin",
+    "expectedCode": "AUTH_PRODUCTION_VARS"
+  },
+  {
+    "name": "production value leaked into test default",
+    "mutation": "productionDefault",
+    "expectedCode": "AUTH_TEST_DEFAULTS"
+  },
+  {
+    "name": "invocation URL logging enabled",
+    "mutation": "enableInvocationLogs",
+    "expectedCode": "AUTH_INVOCATION_LOGS"
+  },
+  {
+    "name": "traces enabled",
+    "mutation": "enableTraces",
+    "expectedCode": "AUTH_TRACES"
+  },
+  {
+    "name": "OAuth Secret stored in vars",
+    "mutation": "secretInVars",
+    "expectedCode": "AUTH_SECRET_CONFIG"
+  },
+  {
+    "name": "wildcard popup target",
+    "mutation": "wildcardPostMessage",
+    "expectedCode": "AUTH_POSTMESSAGE"
+  },
+  {
+    "name": "callback derived from request URL",
+    "mutation": "requestCallback",
+    "expectedCode": "AUTH_CALLBACK_ORIGIN"
+  },
+  {
+    "name": "production deploy bypasses tests",
+    "mutation": "bypassDeployChecks",
+    "expectedCode": "AUTH_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production deploy masks validation failure",
+    "mutation": "maskDeployFailure",
+    "expectedCode": "AUTH_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production dry-run deploys before validation",
+    "mutation": "deployBeforeValidation",
+    "expectedCode": "AUTH_DEPLOY_PIPELINE"
+  }
+]

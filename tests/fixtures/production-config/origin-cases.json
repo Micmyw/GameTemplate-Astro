@@ -1,0 +1,134 @@
+{
+  "valid": {
+    "PUBLIC_SITE_ORIGIN": "https://arcade.testsite.dev",
+    "CMS_ADMIN_ORIGIN": "https://cms.testsite.dev",
+    "CMS_AUTH_ORIGIN": "https://cms-auth.testsite.dev",
+    "GAME_ORIGIN": "https://play.testsite.dev"
+  },
+  "invalid": [
+    {
+      "name": "missing public site Origin",
+      "expectedCode": "MISSING_ORIGIN",
+      "remove": "PUBLIC_SITE_ORIGIN"
+    },
+    {
+      "name": "example.test placeholder",
+      "expectedCode": "PLACEHOLDER_ORIGIN",
+      "set": {
+        "CMS_ADMIN_ORIGIN": "https://cms.example.test"
+      }
+    },
+    {
+      "name": "example.com placeholder",
+      "expectedCode": "PLACEHOLDER_ORIGIN",
+      "set": {
+        "PUBLIC_SITE_ORIGIN": "https://example.com"
+      }
+    },
+    {
+      "name": "reserved invalid placeholder",
+      "expectedCode": "PLACEHOLDER_ORIGIN",
+      "set": {
+        "GAME_ORIGIN": "https://play.placeholder.invalid"
+      }
+    },
+    {
+      "name": "HTTP Origin",
+      "expectedCode": "HTTPS_REQUIRED",
+      "set": {
+        "CMS_AUTH_ORIGIN": "http://cms-auth.testsite.dev"
+      }
+    },
+    {
+      "name": "Origin with path",
+      "expectedCode": "ORIGIN_ONLY",
+      "set": {
+        "CMS_ADMIN_ORIGIN": "https://cms.testsite.dev/admin"
+      }
+    },
+    {
+      "name": "Origin with query",
+      "expectedCode": "ORIGIN_ONLY",
+      "set": {
+        "PUBLIC_SITE_ORIGIN": "https://arcade.testsite.dev?preview=1"
+      }
+    },
+    {
+      "name": "Origin with fragment",
+      "expectedCode": "ORIGIN_ONLY",
+      "set": {
+        "GAME_ORIGIN": "https://play.testsite.dev#game"
+      }
+    },
+    {
+      "name": "Origin with credentials",
+      "expectedCode": "ORIGIN_CREDENTIALS",
+      "set": {
+        "CMS_AUTH_ORIGIN": "https://user:pass@cms-auth.testsite.dev"
+      }
+    },
+    {
+      "name": "duplicate role Origins",
+      "expectedCode": "DUPLICATE_ORIGIN",
+      "set": {
+        "CMS_ADMIN_ORIGIN": "https://arcade.testsite.dev"
+      }
+    },
+    {
+      "name": "wildcard hostname",
+      "expectedCode": "PUBLIC_HOST_REQUIRED",
+      "set": {
+        "CMS_ADMIN_ORIGIN": "https://*.testsite.dev"
+      }
+    },
+    {
+      "name": "terminal dot on reserved example hostname",
+      "expectedCode": "PLACEHOLDER_ORIGIN",
+      "set": {
+        "PUBLIC_SITE_ORIGIN": "https://example.com."
+      }
+    },
+    {
+      "name": "terminal dot on reserved invalid hostname",
+      "expectedCode": "PLACEHOLDER_ORIGIN",
+      "set": {
+        "GAME_ORIGIN": "https://play.placeholder.invalid."
+      }
+    },
+    {
+      "name": "localhost hostname",
+      "expectedCode": "PUBLIC_HOST_REQUIRED",
+      "set": {
+        "CMS_ADMIN_ORIGIN": "https://localhost"
+      }
+    },
+    {
+      "name": "IPv4 hostname",
+      "expectedCode": "PUBLIC_HOST_REQUIRED",
+      "set": {
+        "CMS_AUTH_ORIGIN": "https://127.0.0.1"
+      }
+    },
+    {
+      "name": "IPv6 hostname",
+      "expectedCode": "PUBLIC_HOST_REQUIRED",
+      "set": {
+        "GAME_ORIGIN": "https://[::1]"
+      }
+    },
+    {
+      "name": "single-label internal hostname",
+      "expectedCode": "PUBLIC_HOST_REQUIRED",
+      "set": {
+        "PUBLIC_SITE_ORIGIN": "https://arcade"
+      }
+    },
+    {
+      "name": "unknown manifest property",
+      "expectedCode": "UNKNOWN_ORIGIN_KEY",
+      "set": {
+        "EXTRA_ORIGIN": "https://extra.testsite.dev"
+      }
+    }
+  ]
+}

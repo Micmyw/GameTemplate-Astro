@@ -1,0 +1,6 @@
+{
+  "PUBLIC_SITE_ORIGIN": "https://www.placeholder.invalid",
+  "CMS_ADMIN_ORIGIN": "https://cms.placeholder.invalid",
+  "CMS_AUTH_ORIGIN": "https://cms-auth.placeholder.invalid",
+  "GAME_ORIGIN": "https://play.placeholder.invalid"
+}

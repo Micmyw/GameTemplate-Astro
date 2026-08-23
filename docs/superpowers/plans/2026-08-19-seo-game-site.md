@@ -49,10 +49,6 @@ The completed repository will use this structure:
 ├── public/
 │   ├── _headers
 │   ├── _redirects
-│   ├── admin/
-│   │   ├── index.html
-│   │   ├── config.yml
-│   │   └── preview.css
 │   └── assets/
 ├── src/
 │   ├── assets/images/games/
@@ -99,7 +95,17 @@ The completed repository will use this structure:
 │   ├── integration/dist-output.test.ts
 │   └── unit/
 ├── apps/
+│   ├── cms-admin/
+│   │   ├── public/
+│   │   │   ├── _headers
+│   │   │   ├── config.yml
+│   │   │   ├── favicon.svg
+│   │   │   ├── index.html
+│   │   │   └── preview.css
+│   │   └── wrangler.jsonc
 │   └── cms-auth/
+│       ├── src/
+│       └── wrangler.jsonc
 ├── docs/
 │   ├── content-authoring.md
 │   ├── deployment/r2.md
@@ -1237,7 +1243,11 @@ This PR is security-sensitive. Keep the OAuth Worker in a separate commit and se
 PR 5 is accepted in two checkpoints:
 
 - **PR 5A — code and local verification:** add Decap CMS local authoring, the tested OAuth Worker source, CI, and deployment documentation. Do not deploy the Worker, create a real GitHub OAuth App, configure real secrets, or claim a successful production OAuth login.
-- **PR 5B — production authentication evidence:** begins only after PR 5A code acceptance. Deploy the accepted Worker, configure the real OAuth App and secrets, add the real `base_url`/`auth_endpoint`, remove the local-only Admin guard, and collect live login plus content-commit evidence.
+- **PR 5B — production authentication evidence:** begins only after PR 5A code acceptance. Deploy the accepted Worker, configure the real OAuth App and secrets, add the real `base_url`/`auth_endpoint`, allow one exact production Admin hostname while preserving loopback access, and collect read-only login evidence. Content-write evidence is collected only in the post-merge smoke test.
+
+PR 5B uses branch `feat/game-cms-production` and Draft PR title `feat: configure production CMS authentication`. Its authoritative continuation instructions are in `docs/superpowers/plans/2026-08-23-remaining-master-execution.md`.
+
+The development-stage timing decision in `docs/superpowers/plans/2026-08-23-development-stage-status.md` defers every real domain, deployment, OAuth, Secret, browser-login, CMS-write, and R2 operation as `NOT COMPLETED`. It permits repository development to continue after the current Draft PR passes GATE C and is manually merged; it does not satisfy or weaken the production acceptance criteria below.
 
 Production acceptance is not complete until PR 5B provides a real CMS login, a content edit committed to GitHub, and the resulting site CI/build evidence.
 
@@ -1470,11 +1480,14 @@ Required manual evidence:
 - Worker dry-run output;
 - successful login on the dedicated CMS Admin Origin;
 - proof that `decap-cms-user` exists only in CMS Admin localStorage and is inaccessible from the public-site Origin;
-- a test content edit producing a Git commit;
-- resulting site build passing;
+- an explicit pre-merge no-write declaration;
+- after merge, one controlled draft edit producing a Git commit;
+- the resulting merged-main site build passing while the draft route and Sitemap entry remain absent;
 - no credentials in Git history.
 
 Do not claim production CMS authentication complete on PR 5A unit tests alone.
+
+During the approved development-only sequence, this production completion gate remains deferred as `NOT COMPLETED`. The current Draft PR may be reviewed and manually merged for its repository-development boundary; Project PR 6 still starts only from the resulting updated `main`.
 
 ---
 

@@ -1,10 +1,10 @@
 # Decap CMS Admin and OAuth deployment
 
-## PR 5A status
+## PR 5B status
 
-PR 5A delivers reviewed source, automated tests, three independent CI jobs, local Decap authoring, and dry-run evidence only. It does not create a GitHub OAuth App, configure real Cloudflare bindings or Secrets, deploy either application, enable remote Admin login, or claim a successful production content commit.
+PR 5A has been accepted and merged. PR 5B prepares the production configuration gate, dedicated environments, deployment commands, and live evidence. The repository can temporarily carry the explicit `.placeholder.invalid` values requested for development, but every production verifier rejects those values and every production deploy command runs the verifier before Wrangler. `verify:development-config` accepts only the four intentional placeholder failures and still fails on any deeper configuration drift.
 
-The committed `.example.test` values in `apps/cms-auth/wrangler.jsonc` are non-production placeholders used for type generation and tests. The committed `apps/cms-admin/public/config.yml` intentionally has no `base_url` or `auth_endpoint`, and the Admin shell loads Decap only on loopback hostnames.
+The top-level `.example.test` values in `apps/cms-auth/wrangler.jsonc` remain test defaults. The separate `production` environment, `apps/cms-admin/public/config.yml`, `apps/cms-admin/public/index.html`, and `config/production-origins.json` must all be replaced with the same approved real Origins before deployment. Until then, `npm run verify:production-config` returns `PLACEHOLDER_ORIGIN`; this is a deliberate production block, not deployment evidence.
 
 ## Required Origin topology
 
@@ -26,7 +26,7 @@ GAME:         https://play.example.com
 
 ## Token isolation invariant
 
-Decap 3.15.1 persists authenticated user data, including the GitHub token returned by the backend, in origin-scoped `localStorage`. Browser storage is isolated by Origin, not pathname. Therefore CMS Admin must remain on a dedicated Origin, and `https://example.com/admin/` is not an acceptable production CMS address.
+Decap 3.15.1 persists authenticated user data, including the GitHub token returned by the backend, in origin-scoped `localStorage`. Browser storage is isolated by Origin, not pathname. Therefore CMS Admin must remain on a dedicated Origin and must never be restored beneath the public site's pathname tree.
 
 The CMS Admin Origin must not load advertising or public-site analytics. Apart from the pinned and integrity-protected Decap client, avoid third-party JavaScript. Do not CNAME the CMS Admin hostname to an environment that injects public-site scripts.
 
@@ -53,7 +53,7 @@ Perform these steps only after PR 5A code acceptance:
 5. Create a GitHub OAuth App owned by the appropriate GitHub account or organization.
 6. Set its callback URL to exactly `<CMS_AUTH_ORIGIN>/callback`.
 7. Confirm that no wildcard callback is configured.
-8. Set `CMS_ADMIN_ORIGIN` and `CMS_AUTH_ORIGIN` in `apps/cms-auth/wrangler.jsonc`.
+8. Replace the four values in `config/production-origins.json`, then set the same `CMS_ADMIN_ORIGIN` and `CMS_AUTH_ORIGIN` in `apps/cms-auth/wrangler.jsonc` under `env.production`.
 9. Configure `GITHUB_OAUTH_ID` as a Cloudflare Secret.
 10. Configure `GITHUB_OAUTH_SECRET` as a Cloudflare Secret. Do not place either value in config, source, documentation, CI, a `.dev.vars` file, or command history.
 11. Run the complete OAuth Worker checks and dry-run:
@@ -61,36 +61,31 @@ Perform these steps only after PR 5A code acceptance:
     ```bash
     cd apps/cms-auth
     npm ci
-    npm run format:check
-    npm run check
-    npm run test
-    npx wrangler types
-    npx wrangler deploy --dry-run
+    npm run deploy:production:dry
     ```
 
-12. Deploy the accepted OAuth Worker manually.
+12. Deploy the accepted OAuth Worker with `npm run deploy:production`.
 13. Verify `/auth` and `/callback`, including the exact callback, `public_repo` scope, state validation, and security headers. Do not include code, state, tokens, or Secrets in evidence.
-14. Add `base_url: <CMS_AUTH_ORIGIN>` to the backend in `apps/cms-admin/public/config.yml`.
-15. Add `auth_endpoint: /auth` beside it.
-16. Remove the local-only hostname guard from `apps/cms-admin/public/index.html` only after the real Worker responds correctly.
+14. Replace the placeholder `base_url` with `<CMS_AUTH_ORIGIN>` in `apps/cms-admin/public/config.yml`; keep `auth_endpoint: /auth`.
+15. Replace `data-cms-production-hostname` with the exact hostname from `<CMS_ADMIN_ORIGIN>`; keep all three loopback hosts.
+16. Confirm the guard uses exact set membership and has no suffix, wildcard, or referrer matching.
 17. Run the CMS Admin checks and dry-run:
 
     ```bash
     cd apps/cms-admin
     npm ci
-    npm run format:check
-    npx wrangler deploy --dry-run
+    npm run deploy:production:dry
     ```
 
-18. Deploy the accepted CMS Admin Static Assets application.
-19. Bind the CMS Admin application to the dedicated `cms.example.com` hostname or its reviewed equivalent.
+18. Deploy the accepted CMS Admin Static Assets application with `npm run deploy:production`.
+19. Bind the CMS Admin application to the approved dedicated hostname.
 20. Open `<CMS_ADMIN_ORIGIN>/` and complete a real GitHub OAuth login.
 21. Verify that the browser's `decap-cms-user` entry exists only in `<CMS_ADMIN_ORIGIN>` localStorage.
 22. Open `<PUBLIC_SITE_ORIGIN>` and confirm it cannot access `<CMS_ADMIN_ORIGIN>` localStorage.
-23. Modify one existing draft without publishing it.
-24. Confirm Decap creates the expected GitHub content commit and writes media to the repository paths required by Astro.
-25. Confirm main-site CI passes for that commit.
-26. Confirm the draft route remains absent from the main static build.
-27. Save redacted OAuth App, login, storage-isolation, content-commit, and CI evidence.
+23. Before merge, keep the session read-only: do not save content, upload media, publish, or create a CMS commit.
+24. Save redacted OAuth App, login, storage-isolation, no-write, and CI evidence in the Draft PR.
+25. After independent acceptance and manual merge, edit one harmless line in an existing draft while preserving draft status.
+26. Confirm the CMS commit and main CI, and confirm the draft route and Sitemap entry remain absent with no media written to `public/`.
+27. Restore the test wording through a second normal commit when required, then log out and confirm the `decap-cms-user` key is gone.
 
-PR 5B is not complete until every production evidence item exists. PR 6 must not begin during either PR 5 checkpoint.
+PR 5B production completion is not achieved until every live evidence item exists. During the user-approved placeholder-only development phase, the repository PR may be accepted and merged after its code gates, development-placeholder checks, independent review, and CI pass; every deferred live item must remain `NOT COMPLETED`. That deferred production work blocks any production-complete claim, but it does not block repository-only PR 6 development.

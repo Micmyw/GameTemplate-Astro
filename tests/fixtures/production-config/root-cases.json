@@ -1,0 +1,62 @@
+[
+  {
+    "name": "legacy public Admin route",
+    "mutation": "publicAdmin",
+    "expectedCode": "PUBLIC_ADMIN_ROUTE"
+  },
+  {
+    "name": "Decap client in public site",
+    "mutation": "publicDecap",
+    "expectedCode": "PUBLIC_DECAP"
+  },
+  {
+    "name": "tracked development Secret file",
+    "mutation": "trackedDevVars",
+    "expectedCode": "TRACKED_DEV_VARS"
+  },
+  {
+    "name": "OAuth Secret assigned in Wrangler config",
+    "mutation": "secretConfig",
+    "expectedCode": "TRACKED_SECRET"
+  },
+  {
+    "name": "OAuth Client ID assigned in environment config",
+    "mutation": "clientIdConfig",
+    "expectedCode": "TRACKED_SECRET"
+  },
+  {
+    "name": "untracked public Admin route",
+    "mutation": "untrackedPublicAdmin",
+    "expectedCode": "PUBLIC_ADMIN_ROUTE"
+  },
+  {
+    "name": "untracked public Decap client",
+    "mutation": "untrackedPublicDecap",
+    "expectedCode": "PUBLIC_DECAP"
+  },
+  {
+    "name": "Astro public Admin route",
+    "mutation": "astroAdminPage",
+    "expectedCode": "PUBLIC_ADMIN_ROUTE"
+  },
+  {
+    "name": "OAuth Secret assigned in central JSON config",
+    "mutation": "secretJsonConfig",
+    "expectedCode": "TRACKED_SECRET"
+  },
+  {
+    "name": "root production deploy bypasses validation",
+    "mutation": "bypassRootDeploy",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "root production deploy masks validation failure",
+    "mutation": "maskRootDeployFailure",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "root production dry-run deploys before validation",
+    "mutation": "deployRootBeforeValidation",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  }
+]

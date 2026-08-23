@@ -1,0 +1,102 @@
+[
+  {
+    "name": "missing base_url",
+    "mutation": "removeBaseUrl",
+    "expectedCode": "ADMIN_BASE_URL"
+  },
+  {
+    "name": "wrong auth endpoint",
+    "mutation": "wrongAuthEndpoint",
+    "expectedCode": "ADMIN_AUTH_ENDPOINT"
+  },
+  {
+    "name": "missing local backend",
+    "mutation": "removeLocalBackend",
+    "expectedCode": "ADMIN_LOCAL_BACKEND"
+  },
+  {
+    "name": "mismatched production hostname",
+    "mutation": "mismatchHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "wildcard production hostname",
+    "mutation": "wildcardHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "suffix hostname matching",
+    "mutation": "suffixGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "referrer hostname matching",
+    "mutation": "refererGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "missing no-store header",
+    "mutation": "removeNoStore",
+    "expectedCode": "ADMIN_HEADERS"
+  },
+  {
+    "name": "analytics code",
+    "mutation": "analyticsScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "advertising code",
+    "mutation": "advertisingScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "guard rejects every hostname",
+    "mutation": "disabledGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "guard accepts every hostname",
+    "mutation": "allowAnyHostname",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "expected hostname appears only in a comment",
+    "mutation": "commentedHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "attacker-controlled version-shaped Decap URL",
+    "mutation": "attackerDecapUrl",
+    "expectedCode": "ADMIN_DECAP_CLIENT"
+  },
+  {
+    "name": "unapproved Decap integrity digest",
+    "mutation": "wrongIntegrity",
+    "expectedCode": "ADMIN_DECAP_CLIENT"
+  },
+  {
+    "name": "unapproved external script",
+    "mutation": "externalScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "PostHog telemetry script",
+    "mutation": "posthogScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "Matomo telemetry script",
+    "mutation": "matomoScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "production deploy masks validation failure",
+    "mutation": "maskDeployFailure",
+    "expectedCode": "ADMIN_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production dry-run deploys before validation",
+    "mutation": "deployBeforeValidation",
+    "expectedCode": "ADMIN_DEPLOY_PIPELINE"
+  }
+]

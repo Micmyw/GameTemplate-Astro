@@ -5,4 +5,12 @@
   "assets": {
     "directory": "./public",
   },
+  "env": {
+    "production": {
+      "name": "game-site-cms-admin-production",
+      "assets": {
+        "directory": "./public",
+      },
+    },
+  },
 }
