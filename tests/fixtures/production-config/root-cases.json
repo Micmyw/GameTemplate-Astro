@@ -58,5 +58,125 @@
     "name": "root production dry-run deploys before validation",
     "mutation": "deployRootBeforeValidation",
     "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "missing PUBLIC_SITE_URL",
+    "mutation": "missingSiteUrl",
+    "expectedCode": "MISSING_PUBLIC_SITE_URL"
+  },
+  {
+    "name": "placeholder PUBLIC_SITE_URL",
+    "mutation": "placeholderSiteUrl",
+    "expectedCode": "PLACEHOLDER_ORIGIN"
+  },
+  {
+    "name": "HTTP PUBLIC_SITE_URL",
+    "mutation": "httpSiteUrl",
+    "expectedCode": "HTTPS_REQUIRED"
+  },
+  {
+    "name": "PUBLIC_SITE_URL with a path",
+    "mutation": "siteUrlPath",
+    "expectedCode": "ORIGIN_ONLY"
+  },
+  {
+    "name": "PUBLIC_SITE_URL with a query",
+    "mutation": "siteUrlQuery",
+    "expectedCode": "ORIGIN_ONLY"
+  },
+  {
+    "name": "PUBLIC_SITE_URL with a fragment",
+    "mutation": "siteUrlFragment",
+    "expectedCode": "ORIGIN_ONLY"
+  },
+  {
+    "name": "PUBLIC_SITE_URL with credentials",
+    "mutation": "siteUrlCredentials",
+    "expectedCode": "ORIGIN_CREDENTIALS"
+  },
+  {
+    "name": "PUBLIC_SITE_URL differs from the manifest",
+    "mutation": "siteUrlMismatch",
+    "expectedCode": "PUBLIC_SITE_URL_MISMATCH"
+  },
+  {
+    "name": "missing PUBLIC_GAME_ORIGINS",
+    "mutation": "missingGameOrigins",
+    "expectedCode": "MISSING_PUBLIC_GAME_ORIGINS"
+  },
+  {
+    "name": "placeholder PUBLIC_GAME_ORIGINS",
+    "mutation": "placeholderGameOrigins",
+    "expectedCode": "PLACEHOLDER_ORIGIN"
+  },
+  {
+    "name": "game allowlist collides with the public site role",
+    "mutation": "gameRoleCollision",
+    "expectedCode": "GAME_ORIGIN_ROLE_COLLISION"
+  },
+  {
+    "name": "game manifest Origin is absent from PUBLIC_GAME_ORIGINS",
+    "mutation": "gameOriginMismatch",
+    "expectedCode": "GAME_ORIGIN_NOT_ALLOWED"
+  },
+  {
+    "name": "built canonical uses the wrong Origin",
+    "mutation": "wrongCanonicalOrigin",
+    "expectedCode": "DIST_CANONICAL_ORIGIN"
+  },
+  {
+    "name": "robots Sitemap uses the wrong Origin",
+    "mutation": "wrongRobotsSitemapOrigin",
+    "expectedCode": "ROBOTS_SITEMAP_ORIGIN"
+  },
+  {
+    "name": "Sitemap contains a draft route",
+    "mutation": "sitemapDraft",
+    "expectedCode": "SITEMAP_FORBIDDEN_ROUTE"
+  },
+  {
+    "name": "Sitemap contains an Admin route",
+    "mutation": "sitemapAdmin",
+    "expectedCode": "SITEMAP_FORBIDDEN_ROUTE"
+  },
+  {
+    "name": "Sitemap contains the 404 route",
+    "mutation": "sitemap404",
+    "expectedCode": "SITEMAP_FORBIDDEN_ROUTE"
+  },
+  {
+    "name": "workers.dev preview can be indexed",
+    "mutation": "workersDevIndexable",
+    "expectedCode": "WORKERS_DEV_NOINDEX"
+  },
+  {
+    "name": "unapproved advertising script in the public site",
+    "mutation": "publicAdScript",
+    "expectedCode": "UNAPPROVED_AD_SCRIPT"
+  },
+  {
+    "name": "advertising slots default to enabled",
+    "mutation": "adDefaultEnabled",
+    "expectedCode": "AD_SLOTS_DEFAULT_ENABLED"
+  },
+  {
+    "name": "production environment enables placeholder advertising slots",
+    "mutation": "productionAdsPlaceholder",
+    "expectedCode": "PRODUCTION_ADS_MODE"
+  },
+  {
+    "name": "production deploy omits E2E",
+    "mutation": "deployOmitsE2E",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production deploy omits Wrangler dry-run",
+    "mutation": "deployOmitsDryRun",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production deploy calls a fake E2E target",
+    "mutation": "fakeE2E",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
   }
 ]

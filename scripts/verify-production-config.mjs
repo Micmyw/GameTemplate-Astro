@@ -1,12 +1,16 @@
 import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { extname, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+
+import { load } from "cheerio";
 
 import {
   formatProductionIssues,
   readProductionOrigins,
   validateProductionOrigins,
+  validateProductionRuntime,
 } from "./production-config.mjs";
 
 const args = process.argv.slice(2);
@@ -24,6 +28,14 @@ const configPath = resolve(
 
 const execFileAsync = promisify(execFile);
 const issue = (code, field, message) => ({ code, field, message });
+const productionPreflight =
+  "npm run format:check && npm run check && npm run test && npm run build:production && npm run verify:dist && npm run test:e2e && npm run verify:production-config";
+const advertisingSignatures = [
+  "adsbygoogle",
+  "googlesyndication.com",
+  "doubleclick.net",
+  "adsterra",
+];
 
 const trackedFiles = async () => {
   const { stdout } = await execFileAsync(
@@ -50,12 +62,17 @@ const validateRootDeployScripts = async () => {
   );
   const scripts = packageJson?.scripts ?? {};
   const expectedScripts = {
-    deploy:
-      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
-    "deploy:production:dry":
-      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
-    "deploy:production":
-      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+    "format:check": "prettier --check .",
+    check: "astro check",
+    test: "vitest run --no-file-parallelism --exclude=tests/e2e/**",
+    "build:production": "astro build --mode production",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "test:e2e": "playwright test",
+    "verify:production-config": "node scripts/verify-production-config.mjs",
+    "deploy:dry": "npm run deploy:production:dry",
+    deploy: "npm run deploy:production",
+    "deploy:production:dry": `${productionPreflight} && npx wrangler deploy --dry-run`,
+    "deploy:production": `${productionPreflight} && npx wrangler deploy --dry-run && npx wrangler deploy`,
   };
   const issues = [];
 
@@ -73,6 +90,87 @@ const validateRootDeployScripts = async () => {
   }
 
   return issues;
+};
+
+const validateWorkersPreviewHeaders = async () => {
+  const path = resolve(projectRoot, "public/_headers");
+  let source;
+  try {
+    source = await readFile(path, "utf8");
+  } catch {
+    return [
+      issue(
+        "WORKERS_DEV_NOINDEX",
+        "public/_headers",
+        "public/_headers must protect workers.dev previews with noindex",
+      ),
+    ];
+  }
+
+  const lines = source.split(/\r?\n/);
+  const routeIndex = lines.findIndex(
+    (line) => line.trim() === "https://:version.:subdomain.workers.dev/*",
+  );
+  if (routeIndex === -1) {
+    return [
+      issue(
+        "WORKERS_DEV_NOINDEX",
+        "public/_headers",
+        "workers.dev preview route must be declared",
+      ),
+    ];
+  }
+
+  const headers = [];
+  for (let index = routeIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line.trim() === "") continue;
+    if (!/^\s/.test(line)) break;
+    headers.push(line.trim());
+  }
+  const robotsHeader = headers.find((line) => /^X-Robots-Tag\s*:/i.test(line));
+  if (!robotsHeader || !/\bnoindex\b/i.test(robotsHeader)) {
+    return [
+      issue(
+        "WORKERS_DEV_NOINDEX",
+        "public/_headers",
+        "workers.dev previews must send X-Robots-Tag: noindex",
+      ),
+    ];
+  }
+  return [];
+};
+
+const validateAdDefaults = async () => {
+  const path = resolve(projectRoot, "src/config/ads.ts");
+  try {
+    const moduleUrl = `${pathToFileURL(path).href}?production-config=${Date.now()}`;
+    const adsModule = await import(moduleUrl);
+    const slotIds = adsModule.AD_SLOT_IDS;
+    const config = adsModule.createAdsConfig?.({});
+    const hasEnabledSlot =
+      !Array.isArray(slotIds) ||
+      slotIds.length === 0 ||
+      slotIds.some((slot) => config?.slots?.[slot] !== false);
+    if (config?.mode !== "disabled" || hasEnabledSlot) {
+      return [
+        issue(
+          "AD_SLOTS_DEFAULT_ENABLED",
+          "src/config/ads.ts",
+          "every approved advertising slot must default to disabled",
+        ),
+      ];
+    }
+    return [];
+  } catch {
+    return [
+      issue(
+        "AD_CONFIG_INVALID",
+        "src/config/ads.ts",
+        "advertising defaults could not be evaluated",
+      ),
+    ];
+  }
 };
 
 const listActualFiles = async (roots) => {
@@ -93,6 +191,166 @@ const listActualFiles = async (roots) => {
   };
   for (const root of roots) await visit(resolve(projectRoot, root));
   return files;
+};
+
+const readOptionalFile = async (path) => {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
+};
+
+const canonicalElements = ($) =>
+  $("link").filter((_index, element) =>
+    ($(element).attr("rel") ?? "")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .includes("canonical"),
+  );
+
+const discoverDraftRoutes = async () => {
+  const routes = new Set();
+  for (const [root, prefix] of [
+    ["src/content/games", "/games/"],
+    ["src/content/categories", "/category/"],
+  ]) {
+    const absoluteRoot = resolve(projectRoot, root);
+    const files = await listActualFiles([root]);
+    for (const path of files) {
+      if (!/\.(?:md|mdx)$/i.test(path)) continue;
+      const source = await readFile(path, "utf8");
+      if (!/^\s*status\s*:\s*["']?draft["']?\s*$/im.test(source)) continue;
+      const id = relative(absoluteRoot, path)
+        .replaceAll("\\", "/")
+        .replace(/\.(?:md|mdx)$/i, "");
+      routes.add(`${prefix}${id}/`);
+    }
+  }
+  return routes;
+};
+
+const validateProductionOutput = async (runtime) => {
+  const issues = [];
+  const distFiles = await listActualFiles(["dist"]);
+  const htmlFiles = distFiles.filter((path) =>
+    path.toLowerCase().endsWith(".html"),
+  );
+  if (htmlFiles.length === 0) {
+    issues.push(
+      issue(
+        "DIST_OUTPUT_MISSING",
+        "dist",
+        "production output must be built before configuration verification",
+      ),
+    );
+    return issues;
+  }
+
+  const builtSource = (
+    await Promise.all(
+      distFiles.filter(isTextSource).map((path) => readFile(path, "utf8")),
+    )
+  )
+    .join("\n")
+    .toLowerCase()
+    .replaceAll(" ", "");
+  if (
+    advertisingSignatures.some((signature) => builtSource.includes(signature))
+  ) {
+    issues.push(
+      issue(
+        "UNAPPROVED_AD_SCRIPT",
+        "dist",
+        "built public output must not load an advertising vendor",
+      ),
+    );
+  }
+
+  for (const path of htmlFiles) {
+    const $ = load(await readFile(path, "utf8"));
+    const canonicals = canonicalElements($);
+    if (canonicals.length !== 1) continue;
+    const value = canonicals.attr("href")?.trim();
+    try {
+      if (!value || new URL(value).origin !== runtime.siteOrigin) {
+        issues.push(
+          issue(
+            "DIST_CANONICAL_ORIGIN",
+            relative(projectRoot, path).replaceAll("\\", "/"),
+            "built canonical Origin must equal PUBLIC_SITE_URL",
+          ),
+        );
+      }
+    } catch {
+      issues.push(
+        issue(
+          "DIST_CANONICAL_ORIGIN",
+          relative(projectRoot, path).replaceAll("\\", "/"),
+          "built canonical must be an absolute production URL",
+        ),
+      );
+    }
+  }
+
+  const robotsPath = resolve(projectRoot, "dist/robots.txt");
+  const robots = await readOptionalFile(robotsPath);
+  const expectedSitemap = `${runtime.siteOrigin}/sitemap-index.xml`;
+  const sitemapLines = (robots ?? "")
+    .split(/\r?\n/)
+    .flatMap((line) => line.match(/^\s*Sitemap\s*:\s*(.+)\s*$/i)?.[1] ?? []);
+  if (sitemapLines.length !== 1 || sitemapLines[0] !== expectedSitemap) {
+    issues.push(
+      issue(
+        "ROBOTS_SITEMAP_ORIGIN",
+        "dist/robots.txt",
+        "robots Sitemap must use PUBLIC_SITE_URL",
+      ),
+    );
+  }
+
+  const draftRoutes = await discoverDraftRoutes();
+  for (const path of distFiles.filter((file) =>
+    /(?:^|[\\/])sitemap[^\\/]*\.xml$/i.test(file),
+  )) {
+    const $ = load(await readFile(path, "utf8"), { xml: true });
+    for (const element of $("loc").toArray()) {
+      const value = $(element).text().trim();
+      let url;
+      try {
+        url = new URL(value);
+      } catch {
+        continue;
+      }
+      if (url.origin !== runtime.siteOrigin) {
+        issues.push(
+          issue(
+            "SITEMAP_ORIGIN",
+            relative(projectRoot, path).replaceAll("\\", "/"),
+            "Sitemap URLs must use PUBLIC_SITE_URL",
+          ),
+        );
+      }
+      const forbidden =
+        url.pathname === "/404.html" ||
+        url.pathname === "/admin" ||
+        url.pathname.startsWith("/admin/") ||
+        draftRoutes.has(url.pathname);
+      if (forbidden) {
+        issues.push(
+          issue(
+            "SITEMAP_FORBIDDEN_ROUTE",
+            relative(projectRoot, path).replaceAll("\\", "/"),
+            "Sitemap must not contain draft, Admin, or 404 routes",
+          ),
+        );
+      }
+    }
+  }
+
+  return issues;
 };
 
 const validateRepositoryBoundary = async () => {
@@ -140,6 +398,20 @@ const validateRepositoryBoundary = async () => {
     );
   }
 
+  if (
+    advertisingSignatures.some((signature) =>
+      publicSiteSource.includes(signature),
+    )
+  ) {
+    issues.push(
+      issue(
+        "UNAPPROVED_AD_SCRIPT",
+        "public/src",
+        "the public site must not load an advertising vendor",
+      ),
+    );
+  }
+
   if (tracked.some((path) => /(?:^|\/)\.dev\.vars(?:$|\.)/.test(path))) {
     issues.push(
       issue(
@@ -166,6 +438,8 @@ const validateRepositoryBoundary = async () => {
   }
 
   issues.push(...(await validateRootDeployScripts()));
+  issues.push(...(await validateWorkersPreviewHeaders()));
+  issues.push(...(await validateAdDefaults()));
 
   return issues;
 };
@@ -180,6 +454,13 @@ if (scope !== "origins" && scope !== "all") {
     const issues = [...result.issues];
     if (scope === "all") {
       issues.push(...(await validateRepositoryBoundary()));
+      if (result.issues.length === 0) {
+        const runtime = validateProductionRuntime(process.env, result.origins);
+        issues.push(...runtime.issues);
+        if (runtime.issues.length === 0) {
+          issues.push(...(await validateProductionOutput(runtime)));
+        }
+      }
     }
     if (issues.length > 0) {
       console.error(formatProductionIssues(issues));

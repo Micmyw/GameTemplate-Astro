@@ -27,6 +27,34 @@ const origins = {
   CMS_AUTH_ORIGIN: "https://cms-auth.testsite.dev",
   GAME_ORIGIN: "https://play.testsite.dev",
 };
+const validEnvironment = {
+  PUBLIC_SITE_URL: origins.PUBLIC_SITE_ORIGIN,
+  PUBLIC_GAME_ORIGINS: origins.GAME_ORIGIN,
+};
+
+const canonicalPage = (path: string) =>
+  `<!doctype html><html><head><link rel="canonical" href="${origins.PUBLIC_SITE_ORIGIN}${path}"></head><body><h1>Arcade</h1></body></html>\n`;
+
+const sitemap = (paths: string[]) =>
+  `<?xml version="1.0"?><urlset>${paths
+    .map((path) => `<url><loc>${origins.PUBLIC_SITE_ORIGIN}${path}</loc></url>`)
+    .join("")}</urlset>\n`;
+
+const productionPreflight =
+  "npm run format:check && npm run check && npm run test && npm run build:production && npm run verify:dist && npm run test:e2e && npm run verify:production-config";
+const productionDeployScripts = {
+  "format:check": "prettier --check .",
+  check: "astro check",
+  test: "vitest run --no-file-parallelism --exclude=tests/e2e/**",
+  "build:production": "astro build --mode production",
+  "verify:dist": "node scripts/verify-dist.mjs",
+  "test:e2e": "playwright test",
+  "verify:production-config": "node scripts/verify-production-config.mjs",
+  "deploy:dry": "npm run deploy:production:dry",
+  deploy: "npm run deploy:production",
+  "deploy:production:dry": `${productionPreflight} && npx wrangler deploy --dry-run`,
+  "deploy:production": `${productionPreflight} && npx wrangler deploy --dry-run && npx wrangler deploy`,
+};
 
 const cases = JSON.parse(readFileSync(casesPath, "utf8")) as RootCase[];
 let runtimeRoot: string;
@@ -55,20 +83,40 @@ const runFixture = async (name: string, mutation?: string) => {
       join(fixtureRoot, "public/index.html"),
       "<!doctype html><h1>Arcade</h1>\n",
     ],
+    [
+      join(fixtureRoot, "public/_headers"),
+      "/*\n  X-Content-Type-Options: nosniff\n\nhttps://:version.:subdomain.workers.dev/*\n  X-Robots-Tag: noindex, nofollow\n",
+    ],
     [join(fixtureRoot, "src/pages/index.astro"), "<h1>Arcade</h1>\n"],
+    [
+      join(fixtureRoot, "src/config/ads.ts"),
+      `export const AD_SLOT_IDS = ["home-after-featured"] as const;\nexport const createAdsConfig = () => ({ mode: "disabled", slots: { "home-after-featured": false } });\n`,
+    ],
+    [
+      join(fixtureRoot, "src/content/games/draft-game.md"),
+      "---\nstatus: draft\n---\nDraft fixture\n",
+    ],
+    [join(fixtureRoot, "dist/index.html"), canonicalPage("/")],
+    [
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/"),
+    ],
+    [join(fixtureRoot, "dist/404.html"), canonicalPage("/404.html")],
+    [
+      join(fixtureRoot, "dist/robots.txt"),
+      `User-agent: *\nAllow: /\nSitemap: ${origins.PUBLIC_SITE_ORIGIN}/sitemap-index.xml\n`,
+    ],
+    [
+      join(fixtureRoot, "dist/sitemap-index.xml"),
+      `<?xml version="1.0"?><sitemapindex><sitemap><loc>${origins.PUBLIC_SITE_ORIGIN}/sitemap-0.xml</loc></sitemap></sitemapindex>\n`,
+    ],
+    [join(fixtureRoot, "dist/sitemap-0.xml"), sitemap(["/", "/games/demo/"])],
     [join(fixtureRoot, "wrangler.jsonc"), '{ "name": "game-site" }\n'],
     [
       join(fixtureRoot, "package.json"),
       `${JSON.stringify(
         {
-          scripts: {
-            deploy:
-              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
-            "deploy:production:dry":
-              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
-            "deploy:production":
-              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
-          },
+          scripts: productionDeployScripts,
         },
         null,
         2,
@@ -157,6 +205,90 @@ const runFixture = async (name: string, mutation?: string) => {
         2,
       )}\n`,
     );
+  } else if (mutation === "wrongCanonicalOrigin") {
+    files.set(
+      join(fixtureRoot, "dist/index.html"),
+      '<!doctype html><link rel="canonical" href="https://wrong.testsite.dev/">\n',
+    );
+  } else if (mutation === "wrongRobotsSitemapOrigin") {
+    files.set(
+      join(fixtureRoot, "dist/robots.txt"),
+      "User-agent: *\nAllow: /\nSitemap: https://wrong.testsite.dev/sitemap-index.xml\n",
+    );
+  } else if (mutation === "sitemapDraft") {
+    files.set(
+      join(fixtureRoot, "dist/sitemap-0.xml"),
+      sitemap(["/", "/games/demo/", "/games/draft-game/"]),
+    );
+  } else if (mutation === "sitemapAdmin") {
+    files.set(
+      join(fixtureRoot, "dist/sitemap-0.xml"),
+      sitemap(["/", "/games/demo/", "/admin/"]),
+    );
+  } else if (mutation === "sitemap404") {
+    files.set(
+      join(fixtureRoot, "dist/sitemap-0.xml"),
+      sitemap(["/", "/games/demo/", "/404.html"]),
+    );
+  } else if (mutation === "workersDevIndexable") {
+    files.set(
+      join(fixtureRoot, "public/_headers"),
+      "/*\n  X-Content-Type-Options: nosniff\n",
+    );
+  } else if (mutation === "publicAdScript") {
+    files.set(
+      join(fixtureRoot, "dist/index.html"),
+      `${canonicalPage("/")}<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>\n`,
+    );
+  } else if (mutation === "adDefaultEnabled") {
+    files.set(
+      join(fixtureRoot, "src/config/ads.ts"),
+      `export const AD_SLOT_IDS = ["home-after-featured"] as const;\nexport const createAdsConfig = () => ({ mode: "placeholder", slots: { "home-after-featured": true } });\n`,
+    );
+  } else if (mutation === "deployOmitsE2E") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            ...productionDeployScripts,
+            "deploy:production:dry": productionDeployScripts[
+              "deploy:production:dry"
+            ].replace(" && npm run test:e2e", ""),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  } else if (mutation === "deployOmitsDryRun") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            ...productionDeployScripts,
+            "deploy:production": `${productionPreflight} && npx wrangler deploy`,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  } else if (mutation === "fakeE2E") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            ...productionDeployScripts,
+            "test:e2e": "node -e \"console.log('skipped')\"",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
   }
 
   await Promise.all(
@@ -179,6 +311,49 @@ const runFixture = async (name: string, mutation?: string) => {
     );
   }
 
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...validEnvironment,
+  };
+  if (mutation === "missingSiteUrl") delete environment.PUBLIC_SITE_URL;
+  if (mutation === "placeholderSiteUrl") {
+    environment.PUBLIC_SITE_URL = "https://example.com";
+  }
+  if (mutation === "httpSiteUrl") {
+    environment.PUBLIC_SITE_URL = "http://arcade.testsite.dev";
+  }
+  if (mutation === "siteUrlPath") {
+    environment.PUBLIC_SITE_URL = `${origins.PUBLIC_SITE_ORIGIN}/games/`;
+  }
+  if (mutation === "siteUrlQuery") {
+    environment.PUBLIC_SITE_URL = `${origins.PUBLIC_SITE_ORIGIN}?preview=1`;
+  }
+  if (mutation === "siteUrlFragment") {
+    environment.PUBLIC_SITE_URL = `${origins.PUBLIC_SITE_ORIGIN}#preview`;
+  }
+  if (mutation === "siteUrlCredentials") {
+    environment.PUBLIC_SITE_URL =
+      "https://fixture-user:fixture-pass@arcade.testsite.dev";
+  }
+  if (mutation === "siteUrlMismatch") {
+    environment.PUBLIC_SITE_URL = "https://other.testsite.dev";
+  }
+  if (mutation === "missingGameOrigins") {
+    delete environment.PUBLIC_GAME_ORIGINS;
+  }
+  if (mutation === "placeholderGameOrigins") {
+    environment.PUBLIC_GAME_ORIGINS = "https://play.example.test";
+  }
+  if (mutation === "gameRoleCollision") {
+    environment.PUBLIC_GAME_ORIGINS = origins.PUBLIC_SITE_ORIGIN;
+  }
+  if (mutation === "gameOriginMismatch") {
+    environment.PUBLIC_GAME_ORIGINS = "https://other-play.testsite.dev";
+  }
+  if (mutation === "productionAdsPlaceholder") {
+    environment.PUBLIC_ADS_MODE = "placeholder";
+  }
+
   return spawnSync(
     process.execPath,
     [
@@ -190,7 +365,7 @@ const runFixture = async (name: string, mutation?: string) => {
       "--config",
       originsPath,
     ],
-    { cwd: projectRoot, encoding: "utf8" },
+    { cwd: projectRoot, encoding: "utf8", env: environment },
   );
 };
 

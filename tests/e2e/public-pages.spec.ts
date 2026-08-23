@@ -3,23 +3,29 @@ import { expect, test, type Page } from "@playwright/test";
 
 const GAME_PATH = "/games/going-balls/";
 const CATEGORY_PATH = "/category/ball-games/";
-const GAME_ORIGIN_PATTERN = "https://play.example.com/**";
+const GAME_ORIGINS = (
+  process.env.PUBLIC_GAME_ORIGINS ?? "https://play.example.com"
+)
+  .split(",")
+  .map((value) => new URL(value.trim()).origin);
 
 const mockGameOrigin = async (page: Page) => {
-  await page.route(GAME_ORIGIN_PATTERN, async (route) => {
-    const url = new URL(route.request().url());
-    if (!url.pathname.endsWith("/index.html")) {
-      await route.abort("blockedbyclient");
-      return;
-    }
+  for (const origin of GAME_ORIGINS) {
+    await page.route(`${origin}/**`, async (route) => {
+      const url = new URL(route.request().url());
+      if (!url.pathname.endsWith("/index.html")) {
+        await route.abort("blockedbyclient");
+        return;
+      }
 
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html",
-      headers: { "cache-control": "no-store" },
-      body: `<!doctype html><html lang="en"><head><title>Mock game</title></head><body><main>Mock game fixture</main></body></html>`,
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        headers: { "cache-control": "no-store" },
+        body: `<!doctype html><html lang="en"><head><title>Mock game</title></head><body><main>Mock game fixture</main></body></html>`,
+      });
     });
-  });
+  }
 };
 
 const openGame = async (page: Page) => {
@@ -104,10 +110,9 @@ test("Play creates exactly one mocked game iframe", async ({ page }) => {
 
   await playButton.dispatchEvent("click");
   await expect(frame).toHaveCount(1);
-  await expect(frame).toHaveAttribute(
-    "src",
-    "https://play.example.com/going-balls/index.html",
-  );
+  const frameUrl = new URL((await frame.getAttribute("src")) ?? "");
+  expect(GAME_ORIGINS).toContain(frameUrl.origin);
+  expect(frameUrl.pathname).toBe("/going-balls/index.html");
 });
 
 test("Reload replaces the current iframe without duplicating it", async ({

@@ -40,7 +40,7 @@ export const createAdsConfig = (
 };
 
 export const ADS = createAdsConfig({
-  PUBLIC_ADS_MODE: import.meta.env.PUBLIC_ADS_MODE,
+  PUBLIC_ADS_MODE: import.meta.env?.PUBLIC_ADS_MODE,
 });
 
 export const isAdSlotEnabled = (
