@@ -8,6 +8,20 @@ export const PRODUCTION_ORIGIN_KEYS = [
   "GAME_ORIGIN",
 ];
 const productionOriginKeySet = new Set(PRODUCTION_ORIGIN_KEYS);
+const placeholderSiteNames = new Set([
+  "gamesite",
+  "placeholder",
+  "site name",
+  "your site",
+]);
+
+/**
+ * @typedef {object} ProductionEnvironment
+ * @property {string | undefined} [PUBLIC_SITE_NAME]
+ * @property {string | undefined} [PUBLIC_SITE_URL]
+ * @property {string | undefined} [PUBLIC_GAME_ORIGINS]
+ * @property {string | undefined} [PUBLIC_ADS_MODE]
+ */
 
 const placeholderHostname = (hostname) =>
   hostname === "example.com" ||
@@ -171,8 +185,49 @@ export const validateProductionOrigins = (input) => {
   return { issues, origins: Object.fromEntries(parsed) };
 };
 
+/**
+ * @param {ProductionEnvironment | undefined} environment
+ * @param {Record<string, string>} manifest
+ */
 export const validateProductionRuntime = (environment, manifest) => {
   const issues = [];
+  const rawSiteName = environment?.PUBLIC_SITE_NAME;
+  let siteName;
+  if (typeof rawSiteName !== "string" || rawSiteName.trim() === "") {
+    issues.push(
+      issue(
+        "MISSING_PUBLIC_SITE_NAME",
+        "PUBLIC_SITE_NAME",
+        "PUBLIC_SITE_NAME is required",
+      ),
+    );
+  } else {
+    const normalizedSiteName = rawSiteName.trim();
+    if (normalizedSiteName.length < 2 || normalizedSiteName.length > 60) {
+      issues.push(
+        issue(
+          "INVALID_PUBLIC_SITE_NAME",
+          "PUBLIC_SITE_NAME",
+          "PUBLIC_SITE_NAME must contain between 2 and 60 characters",
+        ),
+      );
+    } else if (
+      placeholderSiteNames.has(
+        normalizedSiteName.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
+      )
+    ) {
+      issues.push(
+        issue(
+          "PLACEHOLDER_SITE_NAME",
+          "PUBLIC_SITE_NAME",
+          "PUBLIC_SITE_NAME must be a real production brand",
+        ),
+      );
+    } else {
+      siteName = normalizedSiteName;
+    }
+  }
+
   const adsMode = environment?.PUBLIC_ADS_MODE?.trim();
   if (adsMode && adsMode !== "disabled") {
     issues.push(
@@ -272,6 +327,7 @@ export const validateProductionRuntime = (environment, manifest) => {
 
   return {
     issues,
+    siteName,
     siteOrigin: siteResult.origin,
     gameOrigins: [...uniqueGameOrigins],
   };

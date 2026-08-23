@@ -32,6 +32,7 @@ complete.
 ## 2. Production Origins and Secrets
 
 - [ ] `config/production-origins.json` contains four approved, distinct HTTPS Origins and no placeholder.
+- [ ] `PUBLIC_SITE_NAME` is the real 2–60 character public brand, not `GameSite` or another placeholder.
 - [ ] `PUBLIC_SITE_URL` exactly equals `PUBLIC_SITE_ORIGIN`.
 - [ ] `PUBLIC_GAME_ORIGINS` contains `GAME_ORIGIN` and no public/Admin/Auth Origin.
 - [ ] CMS Admin, CMS Auth, public site, and game runtime each serve only their assigned role.
@@ -45,6 +46,8 @@ complete.
 - [ ] `npm run deploy:production:dry` completed without skipped or masked failures.
 - [ ] The production build used the real public environment.
 - [ ] Static output verification confirmed canonicals, robots, Sitemap, JSON-LD, links, draft exclusion, Admin exclusion, and GamePlayer security.
+- [ ] Header wordmark, titles, `og:site_name`, and homepage `WebSite` JSON-LD all use the exact normalized `PUBLIC_SITE_NAME`.
+- [ ] No indexable production HTML title or site-name metadata contains the `GameSite` development fallback.
 - [ ] Desktop/mobile Playwright passed with the game iframe request mocked.
 - [ ] Axe reported zero `serious` or `critical` violations on home, game, category, and 404 pages.
 - [ ] The production configuration gate passed with no placeholder exception.

@@ -211,6 +211,55 @@ const canonicalElements = ($) =>
       .includes("canonical"),
   );
 
+const siteNameElements = ($) =>
+  $("meta").filter(
+    (_index, element) =>
+      ($(element).attr("property") ?? "").toLowerCase() === "og:site_name",
+  );
+
+const isIndexablePage = ($) => {
+  const directives = $("meta")
+    .filter(
+      (_index, element) =>
+        ($(element).attr("name") ?? "").toLowerCase() === "robots",
+    )
+    .toArray()
+    .flatMap((element) =>
+      ($(element).attr("content") ?? "")
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .filter(Boolean),
+    );
+  return !directives.includes("noindex");
+};
+
+const schemaNodes = (value) => {
+  if (Array.isArray(value)) return value.flatMap(schemaNodes);
+  if (!value || typeof value !== "object") return [];
+  return [value, ...schemaNodes(value["@graph"])];
+};
+
+const websiteSchemas = ($) =>
+  $("script")
+    .filter(
+      (_index, element) =>
+        ($(element).attr("type") ?? "").toLowerCase() === "application/ld+json",
+    )
+    .toArray()
+    .flatMap((element) => {
+      try {
+        return schemaNodes(JSON.parse($(element).text()));
+      } catch {
+        return [];
+      }
+    })
+    .filter((node) => {
+      const types = Array.isArray(node["@type"])
+        ? node["@type"]
+        : [node["@type"]];
+      return types.includes("WebSite");
+    });
+
 const discoverDraftRoutes = async () => {
   const routes = new Set();
   for (const [root, prefix] of [
@@ -271,6 +320,63 @@ const validateProductionOutput = async (runtime) => {
 
   for (const path of htmlFiles) {
     const $ = load(await readFile(path, "utf8"));
+    const relativePath = relative(projectRoot, path).replaceAll("\\", "/");
+
+    if (isIndexablePage($)) {
+      const siteNames = siteNameElements($);
+      const title = $("title").first().text().trim();
+      if (
+        siteNames.length !== 1 ||
+        siteNames.first().attr("content")?.trim() !== runtime.siteName ||
+        !title.includes(runtime.siteName) ||
+        /\bGameSite\b/i.test(title)
+      ) {
+        issues.push(
+          issue(
+            "DIST_SITE_NAME",
+            relativePath,
+            "every indexable page must use the production site name exactly once in Open Graph metadata and never append GameSite to its title",
+          ),
+        );
+      }
+    }
+
+    if (relativePath === "dist/index.html") {
+      const schemas = websiteSchemas($);
+      if (schemas.length !== 1 || schemas[0]?.name !== runtime.siteName) {
+        issues.push(
+          issue(
+            "DIST_WEBSITE_SCHEMA_NAME",
+            relativePath,
+            "homepage WebSite JSON-LD name must equal PUBLIC_SITE_NAME",
+          ),
+        );
+      }
+
+      const matchingWordmarks = $("header .wordmark").filter(
+        (_index, element) => {
+          const current = $(element);
+          return (
+            !current.is("[hidden], [aria-hidden='true']") &&
+            current
+              .text()
+              .replace(/\s+/g, " ")
+              .trim()
+              .includes(runtime.siteName)
+          );
+        },
+      ).length;
+      if (matchingWordmarks === 0) {
+        issues.push(
+          issue(
+            "DIST_WORDMARK_NAME",
+            relativePath,
+            "visible homepage Header wordmark must contain PUBLIC_SITE_NAME",
+          ),
+        );
+      }
+    }
+
     const canonicals = canonicalElements($);
     if (canonicals.length !== 1) continue;
     const value = canonicals.attr("href")?.trim();
@@ -279,7 +385,7 @@ const validateProductionOutput = async (runtime) => {
         issues.push(
           issue(
             "DIST_CANONICAL_ORIGIN",
-            relative(projectRoot, path).replaceAll("\\", "/"),
+            relativePath,
             "built canonical Origin must equal PUBLIC_SITE_URL",
           ),
         );
@@ -288,7 +394,7 @@ const validateProductionOutput = async (runtime) => {
       issues.push(
         issue(
           "DIST_CANONICAL_ORIGIN",
-          relative(projectRoot, path).replaceAll("\\", "/"),
+          relativePath,
           "built canonical must be an absolute production URL",
         ),
       );

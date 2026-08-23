@@ -47,9 +47,9 @@ Use this checklist for every game-site pull request. Mark items that are outside
 
 ## Production configuration and deployment
 
-- [ ] `PUBLIC_SITE_URL` and `PUBLIC_GAME_ORIGINS` are present, real, HTTPS-only Origins and match the approved Origin manifest, or production evidence is marked `NOT COMPLETED`.
+- [ ] `PUBLIC_SITE_NAME` is a real 2–60 character brand, and `PUBLIC_SITE_URL` plus `PUBLIC_GAME_ORIGINS` are present, real, HTTPS-only Origins matching the approved Origin manifest, or production evidence is marked `NOT COMPLETED`.
 - [ ] Public, game, CMS Admin, and CMS Auth roles are distinct.
-- [ ] The production gate verifies canonical, robots, Sitemap exclusions, workers.dev noindex, public-site Decap absence, ad-vendor absence, and disabled ad defaults.
+- [ ] The production gate verifies site-name consistency across title/Header/Open Graph/WebSite JSON-LD, canonical, robots, Sitemap exclusions, workers.dev noindex, public-site Decap absence, ad-vendor absence, and disabled ad defaults.
 - [ ] `deploy:production:dry` runs format, check, Vitest, production build, dist verification, E2E, the production gate, and Wrangler dry-run without bypasses.
 - [ ] `deploy:production` repeats the full gate and Wrangler dry-run before any upload.
 - [ ] No automatic production deployment was enabled.

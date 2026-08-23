@@ -27,13 +27,47 @@ const origins = {
   CMS_AUTH_ORIGIN: "https://cms-auth.testsite.dev",
   GAME_ORIGIN: "https://play.testsite.dev",
 };
+const defaultSiteName = "Arcade Atlas";
 const validEnvironment = {
+  PUBLIC_SITE_NAME: defaultSiteName,
   PUBLIC_SITE_URL: origins.PUBLIC_SITE_ORIGIN,
   PUBLIC_GAME_ORIGINS: origins.GAME_ORIGIN,
 };
 
-const canonicalPage = (path: string) =>
-  `<!doctype html><html><head><link rel="canonical" href="${origins.PUBLIC_SITE_ORIGIN}${path}"></head><body><h1>Arcade</h1></body></html>\n`;
+type PageOptions = {
+  duplicateSiteNameMeta?: boolean;
+  includeSiteNameMeta?: boolean;
+  ogSiteName?: string;
+  siteName?: string;
+  titleSiteName?: string;
+  websiteSchemaName?: string;
+  wordmarkName?: string;
+};
+
+const canonicalPage = (path: string, options: PageOptions = {}) => {
+  const siteName = options.siteName ?? defaultSiteName;
+  const ogSiteName = options.ogSiteName ?? siteName;
+  const titleSiteName = options.titleSiteName ?? siteName;
+  const wordmarkName = options.wordmarkName ?? siteName;
+  const siteNameMeta =
+    options.includeSiteNameMeta === false
+      ? ""
+      : `<meta property="og:site_name" content="${ogSiteName}">`;
+  const duplicateSiteNameMeta = options.duplicateSiteNameMeta
+    ? `<meta property="og:site_name" content="${ogSiteName}">`
+    : "";
+  const websiteSchema =
+    path === "/"
+      ? `<script type="application/ld+json">${JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: options.websiteSchemaName ?? siteName,
+          url: origins.PUBLIC_SITE_ORIGIN,
+        })}</script>`
+      : "";
+
+  return `<!doctype html><html><head><title>Fixture | ${titleSiteName}</title><meta name="robots" content="index, follow"><link rel="canonical" href="${origins.PUBLIC_SITE_ORIGIN}${path}">${siteNameMeta}${duplicateSiteNameMeta}${websiteSchema}</head><body><header><a class="wordmark" href="/"><span>AA</span>${wordmarkName}</a></header><h1>Arcade</h1></body></html>\n`;
+};
 
 const sitemap = (paths: string[]) =>
   `<?xml version="1.0"?><urlset>${paths
@@ -77,6 +111,11 @@ const runGit = (root: string, args: string[]) => {
 const runFixture = async (name: string, mutation?: string) => {
   const fixtureRoot = join(runtimeRoot, name);
   const originsPath = join(fixtureRoot, "config/production-origins.json");
+  const fixtureSiteName = ["validSiteName", "trimmedSiteName"].includes(
+    mutation ?? "",
+  )
+    ? "Real Arcade"
+    : defaultSiteName;
   const files = new Map<string, string>([
     [originsPath, `${JSON.stringify(origins, null, 2)}\n`],
     [
@@ -96,12 +135,18 @@ const runFixture = async (name: string, mutation?: string) => {
       join(fixtureRoot, "src/content/games/draft-game.md"),
       "---\nstatus: draft\n---\nDraft fixture\n",
     ],
-    [join(fixtureRoot, "dist/index.html"), canonicalPage("/")],
+    [
+      join(fixtureRoot, "dist/index.html"),
+      canonicalPage("/", { siteName: fixtureSiteName }),
+    ],
     [
       join(fixtureRoot, "dist/games/demo/index.html"),
-      canonicalPage("/games/demo/"),
+      canonicalPage("/games/demo/", { siteName: fixtureSiteName }),
     ],
-    [join(fixtureRoot, "dist/404.html"), canonicalPage("/404.html")],
+    [
+      join(fixtureRoot, "dist/404.html"),
+      canonicalPage("/404.html", { siteName: fixtureSiteName }),
+    ],
     [
       join(fixtureRoot, "dist/robots.txt"),
       `User-agent: *\nAllow: /\nSitemap: ${origins.PUBLIC_SITE_ORIGIN}/sitemap-index.xml\n`,
@@ -210,6 +255,41 @@ const runFixture = async (name: string, mutation?: string) => {
       join(fixtureRoot, "dist/index.html"),
       '<!doctype html><link rel="canonical" href="https://wrong.testsite.dev/">\n',
     );
+  } else if (mutation === "wrongOgSiteName") {
+    files.set(
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/", { ogSiteName: "Wrong Arcade" }),
+    );
+  } else if (mutation === "missingOgSiteName") {
+    files.set(
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/", { includeSiteNameMeta: false }),
+    );
+  } else if (mutation === "duplicateOgSiteName") {
+    files.set(
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/", { duplicateSiteNameMeta: true }),
+    );
+  } else if (mutation === "wrongWebsiteSchemaName") {
+    files.set(
+      join(fixtureRoot, "dist/index.html"),
+      canonicalPage("/", { websiteSchemaName: "GameSite" }),
+    );
+  } else if (mutation === "wrongWordmarkName") {
+    files.set(
+      join(fixtureRoot, "dist/index.html"),
+      canonicalPage("/", { wordmarkName: "GameSite" }),
+    );
+  } else if (mutation === "defaultSiteNameInTitle") {
+    files.set(
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/", { titleSiteName: "GameSite" }),
+    );
+  } else if (mutation === "wrongTitleSiteName") {
+    files.set(
+      join(fixtureRoot, "dist/games/demo/index.html"),
+      canonicalPage("/games/demo/", { titleSiteName: "Wrong Arcade" }),
+    );
   } else if (mutation === "wrongRobotsSitemapOrigin") {
     files.set(
       join(fixtureRoot, "dist/robots.txt"),
@@ -315,6 +395,33 @@ const runFixture = async (name: string, mutation?: string) => {
     ...process.env,
     ...validEnvironment,
   };
+  if (mutation === "validSiteName") {
+    environment.PUBLIC_SITE_NAME = fixtureSiteName;
+  }
+  if (mutation === "trimmedSiteName") {
+    environment.PUBLIC_SITE_NAME = `  ${fixtureSiteName}  `;
+  }
+  if (mutation === "missingSiteName") delete environment.PUBLIC_SITE_NAME;
+  if (mutation === "blankSiteName") environment.PUBLIC_SITE_NAME = "   ";
+  if (mutation === "shortSiteName") environment.PUBLIC_SITE_NAME = "A";
+  if (mutation === "longSiteName") {
+    environment.PUBLIC_SITE_NAME = "A".repeat(61);
+  }
+  if (mutation === "defaultSiteName") {
+    environment.PUBLIC_SITE_NAME = "GameSite";
+  }
+  if (mutation === "lowercaseDefaultSiteName") {
+    environment.PUBLIC_SITE_NAME = "gamesite";
+  }
+  if (mutation === "obviousPlaceholderSiteName") {
+    environment.PUBLIC_SITE_NAME = "Your Site";
+  }
+  if (mutation === "siteNamePlaceholder") {
+    environment.PUBLIC_SITE_NAME = "Site Name";
+  }
+  if (mutation === "literalPlaceholderSiteName") {
+    environment.PUBLIC_SITE_NAME = "Placeholder";
+  }
   if (mutation === "missingSiteUrl") delete environment.PUBLIC_SITE_URL;
   if (mutation === "placeholderSiteUrl") {
     environment.PUBLIC_SITE_URL = "https://example.com";
@@ -372,6 +479,24 @@ const runFixture = async (name: string, mutation?: string) => {
 describe("repository production configuration gate", () => {
   it("accepts a tracked public site without Admin, Decap, or Secrets", async () => {
     const result = await runFixture("valid");
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      "Repository production configuration verified",
+    );
+  });
+
+  it("accepts Real Arcade as an explicit production site name", async () => {
+    const result = await runFixture("valid-site-name", "validSiteName");
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      "Repository production configuration verified",
+    );
+  });
+
+  it("trims an otherwise valid production site name", async () => {
+    const result = await runFixture("trimmed-site-name", "trimmedSiteName");
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain(

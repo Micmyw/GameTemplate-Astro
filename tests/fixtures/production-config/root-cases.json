@@ -60,6 +60,51 @@
     "expectedCode": "ROOT_DEPLOY_PIPELINE"
   },
   {
+    "name": "missing PUBLIC_SITE_NAME",
+    "mutation": "missingSiteName",
+    "expectedCode": "MISSING_PUBLIC_SITE_NAME"
+  },
+  {
+    "name": "blank PUBLIC_SITE_NAME",
+    "mutation": "blankSiteName",
+    "expectedCode": "MISSING_PUBLIC_SITE_NAME"
+  },
+  {
+    "name": "one-character PUBLIC_SITE_NAME",
+    "mutation": "shortSiteName",
+    "expectedCode": "INVALID_PUBLIC_SITE_NAME"
+  },
+  {
+    "name": "PUBLIC_SITE_NAME longer than 60 characters",
+    "mutation": "longSiteName",
+    "expectedCode": "INVALID_PUBLIC_SITE_NAME"
+  },
+  {
+    "name": "default GameSite production name",
+    "mutation": "defaultSiteName",
+    "expectedCode": "PLACEHOLDER_SITE_NAME"
+  },
+  {
+    "name": "lowercase default gamesite production name",
+    "mutation": "lowercaseDefaultSiteName",
+    "expectedCode": "PLACEHOLDER_SITE_NAME"
+  },
+  {
+    "name": "obvious production site-name placeholder",
+    "mutation": "obviousPlaceholderSiteName",
+    "expectedCode": "PLACEHOLDER_SITE_NAME"
+  },
+  {
+    "name": "Site Name production placeholder",
+    "mutation": "siteNamePlaceholder",
+    "expectedCode": "PLACEHOLDER_SITE_NAME"
+  },
+  {
+    "name": "literal Placeholder production site name",
+    "mutation": "literalPlaceholderSiteName",
+    "expectedCode": "PLACEHOLDER_SITE_NAME"
+  },
+  {
     "name": "missing PUBLIC_SITE_URL",
     "mutation": "missingSiteUrl",
     "expectedCode": "MISSING_PUBLIC_SITE_URL"
@@ -123,6 +168,41 @@
     "name": "built canonical uses the wrong Origin",
     "mutation": "wrongCanonicalOrigin",
     "expectedCode": "DIST_CANONICAL_ORIGIN"
+  },
+  {
+    "name": "built Open Graph site name is wrong",
+    "mutation": "wrongOgSiteName",
+    "expectedCode": "DIST_SITE_NAME"
+  },
+  {
+    "name": "built page omits Open Graph site name",
+    "mutation": "missingOgSiteName",
+    "expectedCode": "DIST_SITE_NAME"
+  },
+  {
+    "name": "built page duplicates Open Graph site name",
+    "mutation": "duplicateOgSiteName",
+    "expectedCode": "DIST_SITE_NAME"
+  },
+  {
+    "name": "homepage WebSite schema uses the wrong name",
+    "mutation": "wrongWebsiteSchemaName",
+    "expectedCode": "DIST_WEBSITE_SCHEMA_NAME"
+  },
+  {
+    "name": "homepage wordmark uses the GameSite fallback",
+    "mutation": "wrongWordmarkName",
+    "expectedCode": "DIST_WORDMARK_NAME"
+  },
+  {
+    "name": "built title appends the GameSite fallback",
+    "mutation": "defaultSiteNameInTitle",
+    "expectedCode": "DIST_SITE_NAME"
+  },
+  {
+    "name": "built title omits the production site name",
+    "mutation": "wrongTitleSiteName",
+    "expectedCode": "DIST_SITE_NAME"
   },
   {
     "name": "robots Sitemap uses the wrong Origin",

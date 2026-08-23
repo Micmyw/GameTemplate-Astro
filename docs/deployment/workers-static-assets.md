@@ -46,13 +46,20 @@ Replace the four `.placeholder.invalid` values in
 Every value must be a distinct HTTPS Origin with no path, query, fragment,
 credentials, wildcard, localhost, IP address, or reserved example hostname.
 
-Set the two public build variables in the operator environment, not a committed
+Set the three public build variables in the operator environment, not a committed
 `.env` file:
 
 ```text
+PUBLIC_SITE_NAME=<REAL_SITE_NAME>
 PUBLIC_SITE_URL=https://<PUBLIC_HOST>
 PUBLIC_GAME_ORIGINS=https://<GAME_HOST>
 ```
+
+`PUBLIC_SITE_NAME` must be the real 2–60 character public brand. `GameSite` is
+only the development fallback and the production gate rejects it, including
+case variants and obvious values such as `Your Site`, `Site Name`, and
+`Placeholder`. The normalized production name must agree across every title,
+the visible Header wordmark, `og:site_name`, and homepage `WebSite` JSON-LD.
 
 `PUBLIC_GAME_ORIGINS` may be a comma-separated allowlist when more than one
 reviewed game Origin is required. It must include `GAME_ORIGIN`, and none of its
@@ -93,10 +100,11 @@ The wrapper is intentionally exact and cannot skip a failed step. It runs:
 7. the production configuration gate;
 8. `npx wrangler deploy --dry-run`.
 
-The production gate rejects missing or placeholder public variables, Origin
-collisions, mismatched built canonical/robots/Sitemap Origins, draft/Admin/404
-Sitemap entries, an indexable `workers.dev` preview, public-site Decap, an
-advertising vendor, enabled-by-default ad slots, and a shortened deploy script.
+The production gate rejects a missing, invalid, or placeholder site name;
+missing or placeholder public Origin variables; Origin collisions; mismatched
+built site identity/canonical/robots/Sitemap output; draft/Admin/404 Sitemap
+entries; an indexable `workers.dev` preview; public-site Decap; an advertising
+vendor; enabled-by-default ad slots; and a shortened deploy script.
 
 During placeholder-only development, use `npm run verify:development-config`.
 It proves that the only accepted production-gate failures are the four committed
