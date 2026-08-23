@@ -89,8 +89,8 @@ Statuses mean:
 | Main deployment and rollback procedure | `docs/deployment/workers-static-assets.md`                              | `PASS`    |
 | R2 exact-key/rollback readiness        | `docs/deployment/r2.md`                                                 | `PASS`    |
 | Launch/operator checklist              | `docs/launch-checklist.md`                                              | `PASS`    |
-| Screenshot set                         | `docs/review/evidence/pr6/screenshots/`                                 | `MANUAL`  |
-| Lighthouse desktop/mobile              | `docs/review/evidence/pr6/lighthouse/`                                  | `MANUAL`  |
+| Screenshot set                         | `docs/review/evidence/pr6/screenshots/`                                 | `PASS`    |
+| Lighthouse desktop/mobile              | `docs/review/evidence/pr6/lighthouse/`                                  | `PASS`    |
 | CMS Admin post-login screenshot        | No real login; must not be fabricated                                   | `BLOCKED` |
 | Draft PR CI                            | Added after branch push                                                 | `MANUAL`  |
 | Real main/Admin/Auth deployment        | No production domain/account operation authorized                       | `BLOCKED` |
