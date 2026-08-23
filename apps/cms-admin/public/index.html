@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Game Content Administration</title>
+    <style>
+      body {
+        margin: 0;
+        color: #172033;
+        background: #f6f7f9;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .cms-status {
+        max-width: 44rem;
+        margin: 20vh auto 0;
+        padding: 1.25rem;
+        border: 1px solid #d7dce5;
+        border-radius: 0.75rem;
+        background: #fff;
+        box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 8%);
+      }
+    </style>
+  </head>
+  <body
+    data-cms-src="https://unpkg.com/decap-cms@3.15.1/dist/decap-cms.js"
+    data-cms-integrity="sha384-in6eHztHveqQ7uMZ1fDaKlDmacQLFuLH2wWrFTiymyuS8zQ5bixwL8U3AeRi8h/L"
+  >
+    <!--
+      Security invariant: Decap 3.15.1 persists authenticated user data,
+      including the GitHub token returned by the backend, in origin-scoped
+      localStorage. CMS Admin must remain on a dedicated Origin.
+    -->
+    <p class="cms-status" id="cms-status" role="status">
+      Loading the local content administration interface…
+    </p>
+    <noscript>
+      <p class="cms-status">
+        JavaScript is required to use the content editor.
+      </p>
+    </noscript>
+    <script>
+      (() => {
+        const localHostnames = new Set(["localhost", "127.0.0.1", "::1"]);
+        const status = document.getElementById("cms-status");
+        const hostname = window.location.hostname.replace(/^\[|\]$/g, "");
+
+        if (!localHostnames.has(hostname)) {
+          status.textContent =
+            "CMS authentication is not configured for this deployment.";
+          return;
+        }
+
+        const client = document.createElement("script");
+        client.dataset.decapClient = "";
+        client.src = document.body.dataset.cmsSrc;
+        client.integrity = document.body.dataset.cmsIntegrity;
+        client.crossOrigin = "anonymous";
+        client.addEventListener("load", () => {
+          status.remove();
+          window.CMS?.registerPreviewStyle?.("/preview.css");
+        });
+        client.addEventListener("error", () => {
+          status.textContent = "The local CMS client could not be loaded.";
+        });
+        document.head.append(client);
+      })();
+    </script>
+  </body>
+</html>

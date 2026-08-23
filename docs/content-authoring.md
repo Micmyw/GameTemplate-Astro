@@ -1,7 +1,15 @@
 # Content authoring guide
 
-Game and category pages are generated from Markdown at build time. In PR 4,
-authors edit these files directly; no CMS or production upload UI exists yet.
+Game and category pages are generated from Markdown at build time. Authors can
+edit the files directly or use the isolated local CMS Admin at
+`http://127.0.0.1:4322/`. From the repository root, `npm run dev` starts Astro
+on port 4321, CMS Admin on port 4322, and the Decap local backend on port 8081.
+PR 5A does not enable production CMS login.
+
+CMS Admin is a separate static application under `apps/cms-admin`; the public
+site never serves a production CMS pathname. This separation is a security
+invariant because Decap persists authenticated user data, including the GitHub
+token returned by the backend, in origin-scoped `localStorage`.
 
 Keep complete game builds outside this repository. Only editorial Markdown,
 cover images, and screenshots belong here. Never add a game package under

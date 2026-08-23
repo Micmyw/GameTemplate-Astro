@@ -27,7 +27,6 @@ https://www.example.com/games/going-balls/
 - SEO 文案、标题、描述、Canonical、结构化数据；
 - 内部链接、相关推荐、Sitemap、Robots；
 - 广告位容器；
-- 编辑后台入口；
 - 游戏封面、截图和可读内容。
 
 游戏运行域负责：
@@ -78,12 +77,17 @@ https://www.example.com/games/going-balls/
 ### 3.2 管理后台
 
 - Decap CMS；
-- 后台地址 `/admin/`；
+- 独立静态应用目录 `apps/cms-admin/`；
+- 生产地址使用专用 Origin，例如 `https://cms.example.com/`；
+- 禁止使用公开站点的 `/admin/` pathname 作为生产后台；
 - 内容直接写入 GitHub 仓库；
 - Git 提交触发重新构建；
 - 本地使用 Decap local backend；
+- 本地 Admin 地址为 `http://127.0.0.1:4322/`；
 - 生产使用独立 Cloudflare Worker GitHub OAuth Proxy；
 - OAuth 密钥仅保存为 Cloudflare Secret，禁止写入仓库。
+
+Decap 3.15.1 会把包含 GitHub token 的认证用户对象保存在按 Origin 隔离的 `localStorage` 中；浏览器存储不按 pathname 隔离。因此 CMS Admin 必须始终使用独立 Origin，且不得加载公开站点的广告或 analytics。
 
 ### 3.3 游戏资源
 
@@ -161,8 +165,9 @@ CodeStitch 的 Astro + Decap 模板可作为参考，但不作为正式代码底
  /404.html
  /robots.txt
  /sitemap-index.xml
- /admin/
 ```
+
+CMS Admin 不属于主站路由，由独立 `apps/cms-admin` Static Assets 应用在专用 Origin 根路径 `/` 提供。
 
 ### 5.1 首页 `/`
 
@@ -213,13 +218,14 @@ CodeStitch 的 Astro + Decap 模板可作为参考，但不作为正式代码底
 - `CollectionPage` 和 `ItemList` JSON-LD；
 - 分类没有游戏时不生成页面。
 
-### 5.5 管理后台 `/admin/`
+### 5.5 管理后台独立 Origin
 
 - `noindex, nofollow`；
-- 通过 `_headers` 添加 `X-Robots-Tag: noindex, nofollow`；
-- 不进入 Sitemap；
+- 不进入公开主站构建或 Sitemap；
 - 不在公共导航中展示；
-- 只有具备 GitHub 仓库写权限的用户可以登录。
+- 只有具备 GitHub 仓库写权限的用户可以登录；
+- 除固定版本并带 integrity 的 Decap client 外避免第三方 JavaScript；
+- 不加载广告、公开站点 analytics 或会注入公开站点脚本的环境。
 
 ---
 
@@ -410,7 +416,7 @@ getGamesForCategory(categoryId: string): Promise<CollectionEntry<"games">[]>
 
 - 使用 `@astrojs/sitemap`；
 - 只包含生产 URL；
-- 排除 `/admin/`；
+- 防御性排除 `/admin/`，且主站实际不生成该路由；
 - 排除 `draft` 内容；
 - `robots.txt` 指向 Sitemap；
 - Worker 预览域名通过 `_headers` 添加 `X-Robots-Tag: noindex`；
@@ -530,10 +536,6 @@ category-after-grid
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   X-Frame-Options: DENY
 
-/admin/*
-  X-Robots-Tag: noindex, nofollow
-  Cache-Control: no-store
-
 https://:version.:subdomain.workers.dev/*
   X-Robots-Tag: noindex, nofollow
 
@@ -541,7 +543,7 @@ https://:version.:subdomain.workers.dev/*
   Cache-Control: public, max-age=31536000, immutable
 ```
 
-CSP 需要允许游戏 iframe Origin。因为生产域名由环境变量决定，首版不在 `_headers` 中硬编码过度严格 CSP；在配置真实域名后再增加经过验证的 CSP。不得为了“看起来安全”添加会破坏 Decap CMS 或 iframe 的 CSP。
+CSP 需要允许游戏 iframe Origin。因为生产域名由环境变量决定，首版不在主站 `_headers` 中硬编码过度严格 CSP；在配置真实域名后再增加经过验证的 CSP。不得为了“看起来安全”添加会破坏 iframe 的 CSP。
 
 ---
 
@@ -641,10 +643,10 @@ assets/...
 生产认证流程：
 
 ```text
-/admin/
-  → cms-auth.example.workers.dev/auth
+cms.example.com/
+  → cms-auth.example.com/auth
   → GitHub OAuth
-  → cms-auth.example.workers.dev/callback
+  → cms-auth.example.com/callback
   → Decap CMS
   → GitHub commit
   → CI build
@@ -658,7 +660,7 @@ OAuth Worker：
 - secrets：GitHub Client ID 和 Client Secret；
 - 不记录 access token；
 - 不在日志中输出 authorization code；
-- 只允许配置的站点 Origin；
+- 只允许配置的专用 CMS Admin Origin；
 - 代码来源和许可证保留；
 - 必须单独 PR 验收。
 
@@ -689,7 +691,7 @@ OAuth Worker：
 - iframe 在 `click` 模式下初始不存在；
 - Play 按钮存在；
 - Draft 游戏不输出；
-- Sitemap 不包含 `/admin/` 和 Draft；
+- Sitemap 不包含 `/admin/` 和 Draft，主站 dist 不包含 Admin HTML；
 - Robots 指向 Sitemap；
 - 内部链接无缺失目标；
 - 404 页面存在。
@@ -784,7 +786,7 @@ main 自动部署只在以下条件满足后启用：
 - 所有示例内容通过 schema；
 - 游戏、分类和首页源码包含完整 SEO 内容；
 - GamePlayer 只加载允许 Origin；
-- `/admin/` 可本地编辑；
+- `http://127.0.0.1:4322/` 的独立 CMS Admin 可本地编辑；
 - 生产 OAuth Worker 有独立文档和测试；
 - CI 全绿；
 - Wrangler dry-run 成功；

@@ -322,7 +322,7 @@ describe("robots and Sitemap output", () => {
     });
   });
 
-  it("excludes drafts, empty categories, admin, and 404 from routes and Sitemap", () => {
+  it("excludes non-indexable URLs and the isolated CMS Admin from the main build", () => {
     const textFiles = listTextFiles();
     const output = textFiles
       .map((file) => readFileSync(file, "utf8"))

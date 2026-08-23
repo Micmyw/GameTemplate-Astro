@@ -355,6 +355,7 @@ describe("launch-quality dist verification", () => {
         "index.html",
       ]),
     );
+    expect(result.indexablePages).toBe(sitemapUrls.length);
   });
 
   it("accepts an eager player only when its initial iframe is secured", async () => {
@@ -368,6 +369,22 @@ describe("launch-quality dist verification", () => {
     const distDirectory = await createDist(files);
 
     await expect(verifyFixture(distDirectory)).resolves.toBeTruthy();
+  });
+
+  it("rejects a CMS Admin page in the main static build", async () => {
+    const files = validFixture();
+    files["admin/index.html"] = page({
+      route: "/admin/",
+      title: "Unexpected CMS Admin | Fixture Arcade",
+      description: "A CMS Admin page must never ship in the public site build.",
+      h1: "Unexpected CMS Admin",
+      robots: "noindex, nofollow",
+    });
+    const distDirectory = await createDist(files);
+
+    await expect(verifyFixture(distDirectory)).rejects.toThrow(
+      /must not include.*admin|admin.*must not include/i,
+    );
   });
 
   it("does not echo rejected GamePlayer credentials", async () => {

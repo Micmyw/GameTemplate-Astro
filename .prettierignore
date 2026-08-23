@@ -1,1 +1,3 @@
 docs/superpowers/**/*.md
+**/.wrangler/**
+apps/cms-auth/worker-configuration.d.ts

@@ -1,0 +1,22 @@
+:root {
+  color: #172033;
+  background: #ffffff;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.6;
+}
+
+body {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}

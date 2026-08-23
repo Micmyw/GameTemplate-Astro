@@ -541,6 +541,7 @@ function validatePage(
 ) {
   const { $, file, route } = page;
   const isNotFound = route === "/404.html";
+  const isNonIndexable = isNotFound;
 
   const titles = $("title");
   if (titles.length !== 1 || !titles.first().text().trim()) {
@@ -579,7 +580,7 @@ function validatePage(
   }
 
   const canonicals = canonicalElements($);
-  if (!isNotFound || canonicals.length > 0) {
+  if (!isNonIndexable || canonicals.length > 0) {
     page.canonical = readSingletonAttribute(
       issues,
       file,
@@ -615,7 +616,7 @@ function validatePage(
     }
   }
 
-  if (!isNotFound) {
+  if (!isNonIndexable) {
     readSingletonAttribute(
       issues,
       file,
@@ -1088,6 +1089,11 @@ export async function verifyDist(distDirectory, options = {}) {
     ),
   );
   const issues = [];
+  if (outputFiles.has("admin/index.html")) {
+    issues.push(
+      "Public static output must not include dist/admin/index.html; CMS Admin belongs to its dedicated Origin",
+    );
+  }
   let expectedSiteOrigin;
   if (options.expectedSiteOrigin) {
     const expectedUrl = readHttpsUrl(
