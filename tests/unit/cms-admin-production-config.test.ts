@@ -21,6 +21,7 @@ const casesPath = resolve(
   projectRoot,
   "tests/fixtures/production-config/admin-cases.json",
 );
+const adminPublicRoot = resolve(projectRoot, "apps/cms-admin/public");
 
 const origins = {
   PUBLIC_SITE_ORIGIN: "https://arcade.testsite.dev",
@@ -29,41 +30,15 @@ const origins = {
   GAME_ORIGIN: "https://play.testsite.dev",
 };
 
-const validConfig = `backend:
-  name: github
-  repo: Micmyw/GameTemplate-Astro
-  branch: main
-  auth_scope: public_repo
-  base_url: https://cms-auth.testsite.dev
-  auth_endpoint: /auth
-local_backend:
-  url: http://127.0.0.1:8081/api/v1
-`;
-
-const validHtml = `<!doctype html>
-<body
-  data-cms-src="https://unpkg.com/decap-cms@3.15.1/dist/decap-cms.js"
-  data-cms-integrity="sha384-fixture"
-  data-cms-production-hostname="cms.testsite.dev"
->
-  <script>
-    const approvedHostnames = new Set(["localhost", "127.0.0.1", "::1", document.body.dataset.cmsProductionHostname]);
-    approvedHostnames.has(window.location.hostname);
-    const client = {};
-    client.crossOrigin = "anonymous";
-  </script>
-</body>
-`;
-
-const validHeaders = `/*
-  X-Robots-Tag: noindex, nofollow
-  Cache-Control: no-store
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: DENY
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
-  Content-Security-Policy: frame-ancestors 'none'; base-uri 'none'; object-src 'none'
-`;
+const validConfig = readFileSync(
+  resolve(adminPublicRoot, "config.yml"),
+  "utf8",
+).replaceAll("cms-auth.placeholder.invalid", "cms-auth.testsite.dev");
+const validHtml = readFileSync(
+  resolve(adminPublicRoot, "index.html"),
+  "utf8",
+).replaceAll("cms.placeholder.invalid", "cms.testsite.dev");
+const validHeaders = readFileSync(resolve(adminPublicRoot, "_headers"), "utf8");
 
 const cases = JSON.parse(readFileSync(casesPath, "utf8")) as AdminCase[];
 let runtimeRoot: string;
@@ -101,13 +76,13 @@ const mutate = (
     html = html.replace("cms.testsite.dev", "*.testsite.dev");
   } else if (mutation === "suffixGuard") {
     html = html.replace(
-      "approvedHostnames.has(window.location.hostname);",
-      "window.location.hostname.endsWith('testsite.dev');",
+      "approvedHostnames.has(hostname)",
+      'hostname.endsWith("testsite.dev")',
     );
   } else if (mutation === "refererGuard") {
     html = html.replace(
-      "approvedHostnames.has(window.location.hostname);",
-      "new URL(document.referrer).hostname === 'cms.testsite.dev';",
+      "approvedHostnames.has(hostname)",
+      'new URL(document.referrer).hostname === "cms.testsite.dev"',
     );
   } else if (mutation === "removeNoStore") {
     headers = headers.replace("  Cache-Control: no-store\n", "");
@@ -121,22 +96,80 @@ const mutate = (
       "</body>",
       '<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script></body>',
     );
+  } else if (mutation === "disabledGuard") {
+    html = html.replace("if (!approvedHostnames.has(hostname))", "if (true)");
+  } else if (mutation === "allowAnyHostname") {
+    html = html.replace("if (!approvedHostnames.has(hostname))", "if (false)");
+  } else if (mutation === "commentedHostname") {
+    html = html
+      .replace('    data-cms-production-hostname="cms.testsite.dev"\n', "")
+      .replace(
+        "  <body\n",
+        '  <!-- data-cms-production-hostname="cms.testsite.dev" -->\n  <body\n',
+      );
+  } else if (mutation === "attackerDecapUrl") {
+    html = html.replace(
+      "https://unpkg.com/decap-cms@3.15.1/dist/decap-cms.js",
+      "https://attacker.test/decap-cms@3.15.1/dist/decap-cms.js",
+    );
+  } else if (mutation === "wrongIntegrity") {
+    html = html.replace(
+      "sha384-in6eHztHveqQ7uMZ1fDaKlDmacQLFuLH2wWrFTiymyuS8zQ5bixwL8U3AeRi8h/L",
+      "sha384-fixture",
+    );
+  } else if (mutation === "externalScript") {
+    html = html.replace(
+      "</body>",
+      '<script src="https://attacker.test/client.js"></script></body>',
+    );
+  } else if (mutation === "posthogScript") {
+    html = html.replace(
+      "</body>",
+      '<script src="https://cdn.posthog.com/posthog.js"></script></body>',
+    );
+  } else if (mutation === "matomoScript") {
+    html = html.replace(
+      "</body>",
+      '<script src="https://analytics.test/matomo.js"></script></body>',
+    );
   }
 
   return { config, html, headers };
 };
 
-const runFixture = async (name: string, mutation?: string) => {
+const runFixture = async (
+  name: string,
+  mutation?: string,
+  useDevelopmentPlaceholders = false,
+) => {
   const fixtureRoot = join(runtimeRoot, name);
   const publicRoot = join(fixtureRoot, "apps/cms-admin/public");
   const originsPath = join(fixtureRoot, "production-origins.json");
   await mkdir(publicRoot, { recursive: true });
   const fixture = mutate(mutation);
+  const fixtureOrigins = useDevelopmentPlaceholders
+    ? {
+        PUBLIC_SITE_ORIGIN: "https://www.placeholder.invalid",
+        CMS_ADMIN_ORIGIN: "https://cms.placeholder.invalid",
+        CMS_AUTH_ORIGIN: "https://cms-auth.placeholder.invalid",
+        GAME_ORIGIN: "https://play.placeholder.invalid",
+      }
+    : origins;
+  if (useDevelopmentPlaceholders) {
+    fixture.config = fixture.config.replaceAll(
+      "cms-auth.testsite.dev",
+      "cms-auth.placeholder.invalid",
+    );
+    fixture.html = fixture.html.replaceAll(
+      "cms.testsite.dev",
+      "cms.placeholder.invalid",
+    );
+  }
   const files = new Map([
     [join(publicRoot, "config.yml"), fixture.config],
     [join(publicRoot, "index.html"), fixture.html],
     [join(publicRoot, "_headers"), fixture.headers],
-    [originsPath, `${JSON.stringify(origins, null, 2)}\n`],
+    [originsPath, `${JSON.stringify(fixtureOrigins, null, 2)}\n`],
   ]);
   await Promise.all(
     [...files].map(async ([path, contents]) => {
@@ -172,4 +205,17 @@ describe("CMS Admin production configuration CLI", () => {
       expect(output, invalidCase.name).toContain(invalidCase.expectedCode);
     },
   );
+
+  it("checks the real Admin policy while development placeholders remain blocked", async () => {
+    const result = await runFixture(
+      "development-placeholder-deep-check",
+      "posthogScript",
+      true,
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(1);
+    expect(output).toContain("PLACEHOLDER_ORIGIN");
+    expect(output).toContain("ADMIN_THIRD_PARTY_CODE");
+  });
 });

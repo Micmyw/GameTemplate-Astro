@@ -190,7 +190,10 @@ try {
     ]);
   const originResult = validateProductionOrigins(input);
   const issues = [...originResult.issues];
-  if (originResult.issues.length === 0) {
+  if (
+    originResult.origins.CMS_ADMIN_ORIGIN &&
+    originResult.origins.CMS_AUTH_ORIGIN
+  ) {
     const parseErrors = [];
     const wrangler = parse(wranglerSource, parseErrors, {
       allowTrailingComma: true,

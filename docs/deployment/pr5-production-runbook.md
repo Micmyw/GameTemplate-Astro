@@ -15,7 +15,7 @@ Start this runbook only when all of these conditions are true:
 5. Every input in the next section has been supplied or confirmed.
 6. The user has chosen a dedicated GitHub editing account, or has explicitly accepted the wider `public_repo` access of the primary account.
 
-If any condition is false, record `NOT COMPLETED` and stop. Do not deploy either application, create an OAuth App, configure a Secret, or reuse the PR 5A branch.
+If any condition is false, record the live procedure as `NOT COMPLETED` and do not start this production runbook. Continue repository-only development under the committed placeholder gate when the user has authorized that mode; do not deploy either application, create an OAuth App, configure a Secret, or reuse the PR 5A branch.
 
 PR 5B is a project phase name. Its GitHub pull request may be numbered `#6` or higher, but it must not be described as project PR 6. Project PR 6 remains blocked until this Draft PR is independently accepted and manually merged.
 
@@ -131,17 +131,12 @@ Keep the `.example.test` default environment for unit tests. The production envi
 - errors are controlled and contain no code, state, token, or Secret;
 - invocation logs and traces remain disabled.
 
-Configure the two Secrets interactively as described above. Then run:
+Configure the two Secrets interactively as described above. Then use the validation-first dry-run wrapper:
 
 ```bash
 cd apps/cms-auth
 npm ci
-npm run format:check
-npm run check
-npm run test
-npx wrangler types
-npm run verify:production-config
-npx wrangler deploy --dry-run --env production
+npm run deploy:production:dry
 cd ../..
 ```
 
@@ -153,7 +148,7 @@ Only after the production dry-run succeeds:
 
 ```bash
 cd apps/cms-auth
-npx wrangler deploy --env production
+npm run deploy:production
 cd ../..
 ```
 
@@ -222,21 +217,18 @@ The production deploy workflow must run this gate first. Tests must keep using n
 
 ## B9. Validate and deploy CMS Admin
 
-Run local and production-aware checks:
+Run the validation-first production dry-run wrapper:
 
 ```bash
 cd apps/cms-admin
 npm ci
-npm run format:check
-npm run test:headers
-npm run verify:production-config
-npx wrangler deploy --dry-run --env production
+npm run deploy:production:dry
 ```
 
 Only after every command succeeds:
 
 ```bash
-npx wrangler deploy --env production
+npm run deploy:production
 cd ../..
 ```
 
@@ -265,7 +257,7 @@ Create a Draft PR titled `feat: configure production CMS authentication`. Includ
 
 ## B12. Accept and merge PR 5B
 
-Keep the PR Draft until independent review accepts the code and production evidence. Critical and Important findings must be fixed and reverified in the same PR. Merge only after acceptance and a fresh green three-job CI run.
+Keep the PR Draft until independent review accepts the code. Critical and Important findings must be fixed and reverified in the same PR. In a live-production phase, merge only after the production evidence and a fresh green three-job CI run are both accepted. In the user-approved placeholder-only development phase, the repository PR may merge after the code, placeholder deep gates, independent review, and three-job CI pass while all live evidence remains explicitly `NOT COMPLETED`; repository-only PR 6 work may then continue without claiming PR 5B production completion.
 
 Record the PR URL, base SHA, head SHA, merge SHA, changed files, commits, all checks, deployment identifiers, and redacted production evidence. A dry-run does not replace deployment evidence, and deployment does not replace login evidence.
 

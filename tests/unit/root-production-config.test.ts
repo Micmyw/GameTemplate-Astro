@@ -57,6 +57,23 @@ const runFixture = async (name: string, mutation?: string) => {
     ],
     [join(fixtureRoot, "src/pages/index.astro"), "<h1>Arcade</h1>\n"],
     [join(fixtureRoot, "wrangler.jsonc"), '{ "name": "game-site" }\n'],
+    [
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            deploy:
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+            "deploy:production:dry":
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
+            "deploy:production":
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    ],
   ]);
 
   if (mutation === "publicAdmin") {
@@ -77,6 +94,32 @@ const runFixture = async (name: string, mutation?: string) => {
     files.set(
       join(fixtureRoot, ".env.production"),
       "GITHUB_OAUTH_ID=forbidden\n",
+    );
+  } else if (mutation === "astroAdminPage") {
+    files.set(join(fixtureRoot, "src/pages/admin.astro"), "<h1>Admin</h1>\n");
+  } else if (mutation === "secretJsonConfig") {
+    files.set(
+      originsPath,
+      `${JSON.stringify(
+        { ...origins, GITHUB_OAUTH_SECRET: "forbidden" },
+        null,
+        2,
+      )}\n`,
+    );
+  } else if (mutation === "bypassRootDeploy") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            deploy: "wrangler deploy",
+            "deploy:production:dry": "wrangler deploy --dry-run",
+            "deploy:production": "wrangler deploy",
+          },
+        },
+        null,
+        2,
+      )}\n`,
     );
   }
 

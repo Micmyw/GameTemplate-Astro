@@ -2,7 +2,7 @@
 
 ## PR 5B status
 
-PR 5A has been accepted and merged. PR 5B prepares the production configuration gate, dedicated environments, deployment commands, and live evidence. The repository can temporarily carry the explicit `.placeholder.invalid` values requested for development, but every production verifier rejects those values and every production deploy command runs the verifier before Wrangler.
+PR 5A has been accepted and merged. PR 5B prepares the production configuration gate, dedicated environments, deployment commands, and live evidence. The repository can temporarily carry the explicit `.placeholder.invalid` values requested for development, but every production verifier rejects those values and every production deploy command runs the verifier before Wrangler. `verify:development-config` accepts only the four intentional placeholder failures and still fails on any deeper configuration drift.
 
 The top-level `.example.test` values in `apps/cms-auth/wrangler.jsonc` remain test defaults. The separate `production` environment, `apps/cms-admin/public/config.yml`, `apps/cms-admin/public/index.html`, and `config/production-origins.json` must all be replaced with the same approved real Origins before deployment. Until then, `npm run verify:production-config` returns `PLACEHOLDER_ORIGIN`; this is a deliberate production block, not deployment evidence.
 
@@ -61,15 +61,10 @@ Perform these steps only after PR 5A code acceptance:
     ```bash
     cd apps/cms-auth
     npm ci
-    npm run format:check
-    npm run check
-    npm run test
-    npx wrangler types
-    npm run verify:production-config
-    npx wrangler deploy --dry-run --env production
+    npm run deploy:production:dry
     ```
 
-12. Deploy the accepted OAuth Worker with `npx wrangler deploy --env production`.
+12. Deploy the accepted OAuth Worker with `npm run deploy:production`.
 13. Verify `/auth` and `/callback`, including the exact callback, `public_repo` scope, state validation, and security headers. Do not include code, state, tokens, or Secrets in evidence.
 14. Replace the placeholder `base_url` with `<CMS_AUTH_ORIGIN>` in `apps/cms-admin/public/config.yml`; keep `auth_endpoint: /auth`.
 15. Replace `data-cms-production-hostname` with the exact hostname from `<CMS_ADMIN_ORIGIN>`; keep all three loopback hosts.
@@ -79,13 +74,10 @@ Perform these steps only after PR 5A code acceptance:
     ```bash
     cd apps/cms-admin
     npm ci
-    npm run format:check
-    npm run test:headers
-    npm run verify:production-config
-    npx wrangler deploy --dry-run --env production
+    npm run deploy:production:dry
     ```
 
-18. Deploy the accepted CMS Admin Static Assets application with `npx wrangler deploy --env production`.
+18. Deploy the accepted CMS Admin Static Assets application with `npm run deploy:production`.
 19. Bind the CMS Admin application to the approved dedicated hostname.
 20. Open `<CMS_ADMIN_ORIGIN>/` and complete a real GitHub OAuth login.
 21. Verify that the browser's `decap-cms-user` entry exists only in `<CMS_ADMIN_ORIGIN>` localStorage.
@@ -96,4 +88,4 @@ Perform these steps only after PR 5A code acceptance:
 26. Confirm the CMS commit and main CI, and confirm the draft route and Sitemap entry remain absent with no media written to `public/`.
 27. Restore the test wording through a second normal commit when required, then log out and confirm the `decap-cms-user` key is gone.
 
-PR 5B is not complete until every production evidence item exists. PR 6 must not begin during either PR 5 checkpoint.
+PR 5B production completion is not achieved until every live evidence item exists. During the user-approved placeholder-only development phase, the repository PR may be accepted and merged after its code gates, development-placeholder checks, independent review, and CI pass; every deferred live item must remain `NOT COMPLETED`. That deferred production work blocks any production-complete claim, but it does not block repository-only PR 6 development.

@@ -126,11 +126,28 @@ const mutate = (mutation?: string) => {
   return { handler, packageJson, wrangler };
 };
 
-const runFixture = async (name: string, mutation?: string) => {
+const runFixture = async (
+  name: string,
+  mutation?: string,
+  useDevelopmentPlaceholders = false,
+) => {
   const fixtureRoot = join(runtimeRoot, name);
   const authRoot = join(fixtureRoot, "apps/cms-auth");
   const originsPath = join(fixtureRoot, "production-origins.json");
   const fixture = mutate(mutation);
+  const fixtureOrigins = useDevelopmentPlaceholders
+    ? {
+        PUBLIC_SITE_ORIGIN: "https://www.placeholder.invalid",
+        CMS_ADMIN_ORIGIN: "https://cms.placeholder.invalid",
+        CMS_AUTH_ORIGIN: "https://cms-auth.placeholder.invalid",
+        GAME_ORIGIN: "https://play.placeholder.invalid",
+      }
+    : origins;
+  if (useDevelopmentPlaceholders) {
+    fixture.wrangler = fixture.wrangler
+      .replaceAll("cms.testsite.dev", "cms.placeholder.invalid")
+      .replaceAll("cms-auth.testsite.dev", "cms-auth.placeholder.invalid");
+  }
   await mkdir(join(authRoot, "src"), { recursive: true });
   await Promise.all([
     writeFile(join(authRoot, "wrangler.jsonc"), fixture.wrangler, "utf8"),
@@ -140,7 +157,11 @@ const runFixture = async (name: string, mutation?: string) => {
       `${JSON.stringify(fixture.packageJson, null, 2)}\n`,
       "utf8",
     ),
-    writeFile(originsPath, `${JSON.stringify(origins, null, 2)}\n`, "utf8"),
+    writeFile(
+      originsPath,
+      `${JSON.stringify(fixtureOrigins, null, 2)}\n`,
+      "utf8",
+    ),
   ]);
 
   return spawnSync(
@@ -170,4 +191,17 @@ describe("CMS OAuth Worker production configuration CLI", () => {
       expect(output, invalidCase.name).toContain(invalidCase.expectedCode);
     },
   );
+
+  it("checks the real Worker policy while development placeholders remain blocked", async () => {
+    const result = await runFixture(
+      "development-placeholder-deep-check",
+      "enableInvocationLogs",
+      true,
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(1);
+    expect(output).toContain("PLACEHOLDER_ORIGIN");
+    expect(output).toContain("AUTH_INVOCATION_LOGS");
+  });
 });

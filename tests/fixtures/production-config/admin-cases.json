@@ -48,5 +48,45 @@
     "name": "advertising code",
     "mutation": "advertisingScript",
     "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "guard rejects every hostname",
+    "mutation": "disabledGuard",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "guard accepts every hostname",
+    "mutation": "allowAnyHostname",
+    "expectedCode": "ADMIN_HOST_MATCHING"
+  },
+  {
+    "name": "expected hostname appears only in a comment",
+    "mutation": "commentedHostname",
+    "expectedCode": "ADMIN_HOSTNAME"
+  },
+  {
+    "name": "attacker-controlled version-shaped Decap URL",
+    "mutation": "attackerDecapUrl",
+    "expectedCode": "ADMIN_DECAP_CLIENT"
+  },
+  {
+    "name": "unapproved Decap integrity digest",
+    "mutation": "wrongIntegrity",
+    "expectedCode": "ADMIN_DECAP_CLIENT"
+  },
+  {
+    "name": "unapproved external script",
+    "mutation": "externalScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "PostHog telemetry script",
+    "mutation": "posthogScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "Matomo telemetry script",
+    "mutation": "matomoScript",
+    "expectedCode": "ADMIN_THIRD_PARTY_CODE"
   }
 ]

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { isIP } from "node:net";
 
 export const PRODUCTION_ORIGIN_KEYS = [
   "PUBLIC_SITE_ORIGIN",
@@ -6,20 +7,73 @@ export const PRODUCTION_ORIGIN_KEYS = [
   "CMS_AUTH_ORIGIN",
   "GAME_ORIGIN",
 ];
+const productionOriginKeySet = new Set(PRODUCTION_ORIGIN_KEYS);
 
 const placeholderHostname = (hostname) =>
   hostname === "example.com" ||
   hostname.endsWith(".example.com") ||
+  hostname === "example" ||
+  hostname.endsWith(".example") ||
+  hostname === "test" ||
+  hostname.endsWith(".test") ||
   hostname === "example.test" ||
   hostname.endsWith(".example.test") ||
   hostname === "invalid" ||
   hostname.endsWith(".invalid");
+
+const isPublicHostname = (hostname) => {
+  if (
+    hostname.endsWith(".") ||
+    hostname.includes("*") ||
+    hostname.includes("_")
+  ) {
+    return false;
+  }
+
+  const unwrappedHostname = hostname.replace(/^\[|\]$/g, "");
+  if (isIP(unwrappedHostname) !== 0) return false;
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".lan") ||
+    hostname.endsWith(".home") ||
+    hostname.endsWith(".home.arpa")
+  ) {
+    return false;
+  }
+
+  const labels = hostname.split(".");
+  return (
+    labels.length >= 2 &&
+    hostname.length <= 253 &&
+    labels.every(
+      (label) =>
+        label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label),
+    )
+  );
+};
 
 const issue = (code, field, message) => ({ code, field, message });
 
 export const validateProductionOrigins = (input) => {
   const issues = [];
   const parsed = new Map();
+
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    for (const field of Object.keys(input)) {
+      if (!productionOriginKeySet.has(field)) {
+        issues.push(
+          issue(
+            "UNKNOWN_ORIGIN_KEY",
+            field,
+            `${field} is not an approved production Origin property`,
+          ),
+        );
+      }
+    }
+  }
 
   for (const field of PRODUCTION_ORIGIN_KEYS) {
     const value = input?.[field];
@@ -67,7 +121,11 @@ export const validateProductionOrigins = (input) => {
       );
       continue;
     }
-    if (placeholderHostname(url.hostname.toLowerCase())) {
+    parsed.set(field, url.origin);
+
+    const hostname = url.hostname.toLowerCase();
+    const normalizedHostname = hostname.replace(/\.$/, "");
+    if (placeholderHostname(normalizedHostname)) {
       issues.push(
         issue(
           "PLACEHOLDER_ORIGIN",
@@ -75,10 +133,16 @@ export const validateProductionOrigins = (input) => {
           `${field} must not use a reserved placeholder hostname`,
         ),
       );
-      continue;
     }
-
-    parsed.set(field, url.origin);
+    if (!isPublicHostname(hostname)) {
+      issues.push(
+        issue(
+          "PUBLIC_HOST_REQUIRED",
+          field,
+          `${field} must use a canonical public DNS hostname`,
+        ),
+      );
+    }
   }
 
   const owners = new Map();

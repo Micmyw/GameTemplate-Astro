@@ -40,9 +40,55 @@ const isTextSource = (path) =>
   );
 
 const isSecretConfiguration = (path) =>
-  /(?:^|\/)(?:wrangler\.jsonc|config\.ya?ml|[^/]*\.toml|\.env[^/]*)$/i.test(
+  /(?:^|\/)(?:wrangler\.jsonc|config\.ya?ml|[^/]*\.toml|\.env[^/]*|[^/]*\.jsonc?)$/i.test(
     path,
   );
+
+const includesInOrder = (value, fragments) => {
+  let offset = 0;
+  for (const fragment of fragments) {
+    const index = value.indexOf(fragment, offset);
+    if (index === -1) return false;
+    offset = index + fragment.length;
+  }
+  return true;
+};
+
+const validateRootDeployScripts = async () => {
+  const packageJson = JSON.parse(
+    await readFile(resolve(projectRoot, "package.json"), "utf8"),
+  );
+  const scripts = packageJson?.scripts ?? {};
+  const pipeline = [
+    "npm run format:check",
+    "npm run check",
+    "npm run test",
+    "npm run build",
+    "npm run verify:dist",
+    "npm run verify:production-config",
+    "wrangler deploy",
+  ];
+  const issues = [];
+
+  for (const name of ["deploy", "deploy:production:dry", "deploy:production"]) {
+    const command = String(scripts[name] ?? "");
+    if (
+      !includesInOrder(command, pipeline) ||
+      (name.endsWith(":dry") && !command.includes("--dry-run")) ||
+      (!name.endsWith(":dry") && command.includes("--dry-run"))
+    ) {
+      issues.push(
+        issue(
+          "ROOT_DEPLOY_PIPELINE",
+          `package.json#scripts.${name}`,
+          `${name} must run the complete production gate before Wrangler`,
+        ),
+      );
+    }
+  }
+
+  return issues;
+};
 
 const listActualFiles = async (roots) => {
   const files = [];
@@ -71,7 +117,15 @@ const validateRepositoryBoundary = async () => {
   const actualRelativeFiles = actualFiles.map((path) =>
     relative(projectRoot, path).replaceAll("\\", "/"),
   );
-  if (actualRelativeFiles.some((path) => path.startsWith("public/admin/"))) {
+  if (
+    actualRelativeFiles.some(
+      (path) =>
+        path.startsWith("public/admin/") ||
+        /^src\/pages\/admin(?:\.(?:astro|html|md|mdx|js|mjs|ts)|\/)/i.test(
+          path,
+        ),
+    )
+  ) {
     issues.push(
       issue(
         "PUBLIC_ADMIN_ROUTE",
@@ -125,6 +179,8 @@ const validateRepositoryBoundary = async () => {
       );
     }
   }
+
+  issues.push(...(await validateRootDeployScripts()));
 
   return issues;
 };

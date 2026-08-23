@@ -43,6 +43,9 @@ jobs:
       - name: Verify static output
         run: npm run verify:dist
 
+      - name: Verify development placeholders hide no configuration drift
+        run: npm run verify:development-config
+
       - name: Validate the deployment bundle
         run: npx wrangler deploy --dry-run
 
@@ -83,6 +86,9 @@ jobs:
       - name: Run Worker tests
         run: npm run test
 
+      - name: Verify development placeholders hide no Worker configuration drift
+        run: npm run verify:development-config
+
       - name: Validate the Worker bundle
         run: npx wrangler deploy --dry-run
 
@@ -113,6 +119,9 @@ jobs:
 
       - name: Verify CMS Admin response headers
         run: npm run test:headers
+
+      - name: Verify development placeholders hide no Admin configuration drift
+        run: npm run verify:development-config
 
       - name: Validate the CMS Admin static asset bundle
         run: npx wrangler deploy --dry-run

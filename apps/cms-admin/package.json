@@ -10,11 +10,13 @@
     "format:check": "prettier --ignore-path ../../.prettierignore --check .",
     "test:headers": "node scripts/test-response-headers.mjs",
     "verify:production-config": "node scripts/verify-production-config.mjs",
+    "verify:development-config": "node ../../scripts/verify-development-placeholder.mjs --validator scripts/verify-production-config.mjs",
     "deploy:dry": "wrangler deploy --dry-run",
     "deploy:production:dry": "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --dry-run --env production",
     "deploy:production": "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --env production"
   },
   "devDependencies": {
+    "cheerio": "1.2.0",
     "prettier": "3.9.6",
     "wrangler": "4.124.0",
     "yaml": "2.9.0"

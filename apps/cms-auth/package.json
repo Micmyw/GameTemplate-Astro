@@ -13,6 +13,7 @@
     "format:check": "prettier --ignore-path ../../.prettierignore --check .",
     "cf:typegen": "wrangler types",
     "verify:production-config": "node scripts/verify-production-config.mjs",
+    "verify:development-config": "node ../../scripts/verify-development-placeholder.mjs --validator scripts/verify-production-config.mjs",
     "deploy:dry": "wrangler deploy --dry-run",
     "deploy:production:dry": "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --dry-run --env production",
     "deploy:production": "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --env production"
