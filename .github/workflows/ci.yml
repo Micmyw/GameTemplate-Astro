@@ -105,5 +105,8 @@ jobs:
       - name: Check CMS Admin formatting
         run: npm run format:check
 
+      - name: Verify CMS Admin response headers
+        run: npm run test:headers
+
       - name: Validate the CMS Admin static asset bundle
         run: npx wrangler deploy --dry-run

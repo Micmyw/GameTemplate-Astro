@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "wrangler dev --ip 127.0.0.1 --port 4322",
     "format:check": "prettier --ignore-path ../../.prettierignore --check .",
+    "test:headers": "node scripts/test-response-headers.mjs",
     "deploy:dry": "wrangler deploy --dry-run"
   },
   "devDependencies": {
