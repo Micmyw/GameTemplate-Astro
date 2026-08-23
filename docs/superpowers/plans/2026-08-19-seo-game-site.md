@@ -1247,6 +1247,8 @@ PR 5 is accepted in two checkpoints:
 
 PR 5B uses branch `feat/game-cms-production` and Draft PR title `feat: configure production CMS authentication`. Its authoritative continuation instructions are in `docs/superpowers/plans/2026-08-23-remaining-master-execution.md`.
 
+The development-stage timing decision in `docs/superpowers/plans/2026-08-23-development-stage-status.md` defers every real domain, deployment, OAuth, Secret, browser-login, CMS-write, and R2 operation as `NOT COMPLETED`. It permits repository development to continue after the current Draft PR passes GATE C and is manually merged; it does not satisfy or weaken the production acceptance criteria below.
+
 Production acceptance is not complete until PR 5B provides a real CMS login, a content edit committed to GitHub, and the resulting site CI/build evidence.
 
 ## Task 13: Add isolated Decap CMS local authoring
@@ -1484,6 +1486,8 @@ Required manual evidence:
 - no credentials in Git history.
 
 Do not claim production CMS authentication complete on PR 5A unit tests alone.
+
+During the approved development-only sequence, this production completion gate remains deferred as `NOT COMPLETED`. The current Draft PR may be reviewed and manually merged for its repository-development boundary; Project PR 6 still starts only from the resulting updated `main`.
 
 ---
 

@@ -4,6 +4,8 @@
 
 This runbook is the operator checklist for **PR 5B — Production CMS authentication**. It does not authorize production work during PR 5A.
 
+The user has deferred all real domain, deployment, OAuth, Secret, browser-login, CMS-write, and R2 operations during development. The active development boundary and continuation rule are recorded in `docs/superpowers/plans/2026-08-23-development-stage-status.md`. Until production work is explicitly resumed, keep every live item in this runbook as `NOT COMPLETED`, use only the committed placeholders or synthetic test Origins, and do not treat missing production inputs as a reason to stop repository development.
+
 Start this runbook only when all of these conditions are true:
 
 1. PR 5A has an independent `ACCEPTED` review.
@@ -15,7 +17,7 @@ Start this runbook only when all of these conditions are true:
 
 If any condition is false, record `NOT COMPLETED` and stop. Do not deploy either application, create an OAuth App, configure a Secret, or reuse the PR 5A branch.
 
-PR 5B is a project phase name. Its GitHub pull request may be numbered `#6` or higher, but it must not be described as project PR 6. Project PR 6 remains blocked.
+PR 5B is a project phase name. Its GitHub pull request may be numbered `#6` or higher, but it must not be described as project PR 6. Project PR 6 remains blocked until this Draft PR is independently accepted and manually merged.
 
 ## Required production inputs
 
