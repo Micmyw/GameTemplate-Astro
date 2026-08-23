@@ -189,8 +189,10 @@ describe("page-level SEO output", () => {
 
     const home = readRoute("/");
     expect(home).toContain("TestArcade");
-    expect(home).toContain('<span aria-hidden="true">TA</span>');
-    expect(home).not.toContain('<span aria-hidden="true">GS</span>');
+    expect(home).toContain(
+      '<a class="wordmark" href="/"><span>TA</span>TestArcade</a>',
+    );
+    expect(home).not.toContain("<span>GS</span>");
   });
 
   it.each([
