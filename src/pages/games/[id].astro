@@ -1,6 +1,7 @@
 ---
 import { render, type CollectionEntry } from "astro:content";
 
+import AdSlot from "../../components/ads/AdSlot.astro";
 import GameControls from "../../components/games/GameControls.astro";
 import GamePlayer from "../../components/games/GamePlayer.astro";
 import RelatedGames from "../../components/games/RelatedGames.astro";
@@ -71,6 +72,8 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       </div>
     </header>
 
+    <AdSlot slot="game-before-player" />
+
     <GamePlayer
       title={game.data.title}
       embedUrl={game.data.embedUrl}
@@ -107,5 +110,6 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
 
     <GameControls controls={game.data.controls} />
     <RelatedGames games={relatedGames} categoryNames={categoryNames} />
+    <AdSlot slot="game-after-content" />
   </article>
 </BaseLayout>
