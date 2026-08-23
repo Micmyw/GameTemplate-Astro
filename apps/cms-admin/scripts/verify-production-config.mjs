@@ -34,6 +34,12 @@ const APPROVED_DECAP_INTEGRITY =
   "sha384-in6eHztHveqQ7uMZ1fDaKlDmacQLFuLH2wWrFTiymyuS8zQ5bixwL8U3AeRi8h/L";
 const DENIED_STATUS =
   "CMS authentication is not configured for this deployment.";
+const EXPECTED_ADMIN_DEPLOY_SCRIPTS = {
+  "deploy:production:dry":
+    "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --dry-run --env production",
+  "deploy:production":
+    "npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --env production",
+};
 
 const listTextFiles = async (directory) => {
   const paths = [];
@@ -234,11 +240,12 @@ const validateAdminLoader = (adminHtml, origins) => {
 
 const validateAdminConfiguration = async (origins) => {
   const issues = [];
-  const [configSource, adminHtml, headersSource, publicFiles] =
+  const [configSource, adminHtml, headersSource, packageSource, publicFiles] =
     await Promise.all([
       readFile(resolve(publicRoot, "config.yml"), "utf8"),
       readFile(resolve(publicRoot, "index.html"), "utf8"),
       readFile(resolve(publicRoot, "_headers"), "utf8"),
+      readFile(resolve(projectRoot, "apps/cms-admin/package.json"), "utf8"),
       listTextFiles(publicRoot),
     ]);
   const cmsConfig = asRecord(parse(configSource));
@@ -274,6 +281,21 @@ const validateAdminConfiguration = async (origins) => {
         "CMS local_backend must remain configured",
       ),
     );
+  }
+
+  const scripts = asRecord(asRecord(JSON.parse(packageSource)).scripts);
+  for (const [name, expected] of Object.entries(
+    EXPECTED_ADMIN_DEPLOY_SCRIPTS,
+  )) {
+    if (String(scripts[name] ?? "") !== expected) {
+      issues.push(
+        issue(
+          "ADMIN_DEPLOY_PIPELINE",
+          `package.json#scripts.${name}`,
+          `${name} must exactly match the approved validation-first production pipeline`,
+        ),
+      );
+    }
   }
 
   issues.push(...validateAdminLoader(adminHtml, origins));

@@ -64,16 +64,6 @@ const privateTelemetryIssues = (config, prefix) => {
   return issues;
 };
 
-const includesInOrder = (value, fragments) => {
-  let offset = 0;
-  for (const fragment of fragments) {
-    const index = value.indexOf(fragment, offset);
-    if (index === -1) return false;
-    offset = index + fragment.length;
-  }
-  return true;
-};
-
 const validateAuthConfiguration = (
   origins,
   wrangler,
@@ -152,27 +142,18 @@ const validateAuthConfiguration = (
   }
 
   const scripts = asRecord(packageJson.scripts);
-  const pipeline = [
-    "npm run format:check",
-    "npm run check",
-    "npm run test",
-    "npm run cf:typegen",
-    "npm run verify:production-config",
-    "wrangler deploy",
-  ];
+  const expectedDry =
+    "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --dry-run --env production";
+  const expectedDeploy =
+    "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --env production";
   const productionDry = String(scripts["deploy:production:dry"] ?? "");
   const productionScript = String(scripts["deploy:production"] ?? "");
-  if (
-    !includesInOrder(productionDry, pipeline) ||
-    !productionDry.includes("--dry-run --env production") ||
-    !includesInOrder(productionScript, pipeline) ||
-    !productionScript.includes("wrangler deploy --env production")
-  ) {
+  if (productionDry !== expectedDry || productionScript !== expectedDeploy) {
     issues.push(
       issue(
         "AUTH_DEPLOY_PIPELINE",
         "package.json",
-        "OAuth production deploy scripts must run every required gate in order",
+        "OAuth production deploy scripts must exactly match the approved validation-first pipelines",
       ),
     );
   }

@@ -44,44 +44,29 @@ const isSecretConfiguration = (path) =>
     path,
   );
 
-const includesInOrder = (value, fragments) => {
-  let offset = 0;
-  for (const fragment of fragments) {
-    const index = value.indexOf(fragment, offset);
-    if (index === -1) return false;
-    offset = index + fragment.length;
-  }
-  return true;
-};
-
 const validateRootDeployScripts = async () => {
   const packageJson = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
   );
   const scripts = packageJson?.scripts ?? {};
-  const pipeline = [
-    "npm run format:check",
-    "npm run check",
-    "npm run test",
-    "npm run build",
-    "npm run verify:dist",
-    "npm run verify:production-config",
-    "wrangler deploy",
-  ];
+  const expectedScripts = {
+    deploy:
+      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+    "deploy:production:dry":
+      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
+    "deploy:production":
+      "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+  };
   const issues = [];
 
-  for (const name of ["deploy", "deploy:production:dry", "deploy:production"]) {
+  for (const [name, expected] of Object.entries(expectedScripts)) {
     const command = String(scripts[name] ?? "");
-    if (
-      !includesInOrder(command, pipeline) ||
-      (name.endsWith(":dry") && !command.includes("--dry-run")) ||
-      (!name.endsWith(":dry") && command.includes("--dry-run"))
-    ) {
+    if (command !== expected) {
       issues.push(
         issue(
           "ROOT_DEPLOY_PIPELINE",
           `package.json#scripts.${name}`,
-          `${name} must run the complete production gate before Wrangler`,
+          `${name} must exactly match the approved validation-first production pipeline`,
         ),
       );
     }

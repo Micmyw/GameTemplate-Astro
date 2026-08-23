@@ -48,5 +48,15 @@
     "name": "root production deploy bypasses validation",
     "mutation": "bypassRootDeploy",
     "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "root production deploy masks validation failure",
+    "mutation": "maskRootDeployFailure",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "root production dry-run deploys before validation",
+    "mutation": "deployRootBeforeValidation",
+    "expectedCode": "ROOT_DEPLOY_PIPELINE"
   }
 ]

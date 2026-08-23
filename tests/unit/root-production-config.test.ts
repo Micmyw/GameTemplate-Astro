@@ -121,6 +121,42 @@ const runFixture = async (name: string, mutation?: string) => {
         2,
       )}\n`,
     );
+  } else if (mutation === "maskRootDeployFailure") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            deploy:
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+            "deploy:production:dry":
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
+            "deploy:production":
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config || true && wrangler deploy",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  } else if (mutation === "deployRootBeforeValidation") {
+    files.set(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          scripts: {
+            deploy:
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+            "deploy:production:dry":
+              "wrangler deploy && npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy --dry-run",
+            "deploy:production":
+              "npm run format:check && npm run check && npm run test && npm run build && npm run verify:dist && npm run verify:production-config && wrangler deploy",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
   }
 
   await Promise.all(

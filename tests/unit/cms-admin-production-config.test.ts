@@ -39,6 +39,9 @@ const validHtml = readFileSync(
   "utf8",
 ).replaceAll("cms.placeholder.invalid", "cms.testsite.dev");
 const validHeaders = readFileSync(resolve(adminPublicRoot, "_headers"), "utf8");
+const validPackage = JSON.parse(
+  readFileSync(resolve(projectRoot, "apps/cms-admin/package.json"), "utf8"),
+);
 
 const cases = JSON.parse(readFileSync(casesPath, "utf8")) as AdminCase[];
 let runtimeRoot: string;
@@ -53,10 +56,16 @@ afterAll(async () => {
 
 const mutate = (
   mutation: string | undefined,
-): { config: string; html: string; headers: string } => {
+): {
+  config: string;
+  headers: string;
+  html: string;
+  packageJson: typeof validPackage;
+} => {
   let config = validConfig;
   let html = validHtml;
   let headers = validHeaders;
+  const packageJson = structuredClone(validPackage);
 
   if (mutation === "removeBaseUrl") {
     config = config.replace("  base_url: https://cms-auth.testsite.dev\n", "");
@@ -132,9 +141,15 @@ const mutate = (
       "</body>",
       '<script src="https://analytics.test/matomo.js"></script></body>',
     );
+  } else if (mutation === "maskDeployFailure") {
+    packageJson.scripts["deploy:production"] =
+      "npm run format:check && npm run test:headers && npm run verify:production-config || true && wrangler deploy --env production";
+  } else if (mutation === "deployBeforeValidation") {
+    packageJson.scripts["deploy:production:dry"] =
+      "wrangler deploy --env production && npm run format:check && npm run test:headers && npm run verify:production-config && wrangler deploy --dry-run --env production";
   }
 
-  return { config, html, headers };
+  return { config, headers, html, packageJson };
 };
 
 const runFixture = async (
@@ -169,6 +184,10 @@ const runFixture = async (
     [join(publicRoot, "config.yml"), fixture.config],
     [join(publicRoot, "index.html"), fixture.html],
     [join(publicRoot, "_headers"), fixture.headers],
+    [
+      join(fixtureRoot, "apps/cms-admin/package.json"),
+      `${JSON.stringify(fixture.packageJson, null, 2)}\n`,
+    ],
     [originsPath, `${JSON.stringify(fixtureOrigins, null, 2)}\n`],
   ]);
   await Promise.all(

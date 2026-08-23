@@ -121,6 +121,12 @@ const mutate = (mutation?: string) => {
   } else if (mutation === "bypassDeployChecks") {
     packageJson.scripts["deploy:production"] =
       "npm run verify:production-config && wrangler deploy --env production";
+  } else if (mutation === "maskDeployFailure") {
+    packageJson.scripts["deploy:production"] =
+      "npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config || true && wrangler deploy --env production";
+  } else if (mutation === "deployBeforeValidation") {
+    packageJson.scripts["deploy:production:dry"] =
+      "wrangler deploy --env production && npm run format:check && npm run check && npm run test && npm run cf:typegen && npm run verify:production-config && wrangler deploy --dry-run --env production";
   }
 
   return { handler, packageJson, wrangler };

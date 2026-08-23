@@ -88,5 +88,15 @@
     "name": "Matomo telemetry script",
     "mutation": "matomoScript",
     "expectedCode": "ADMIN_THIRD_PARTY_CODE"
+  },
+  {
+    "name": "production deploy masks validation failure",
+    "mutation": "maskDeployFailure",
+    "expectedCode": "ADMIN_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production dry-run deploys before validation",
+    "mutation": "deployBeforeValidation",
+    "expectedCode": "ADMIN_DEPLOY_PIPELINE"
   }
 ]

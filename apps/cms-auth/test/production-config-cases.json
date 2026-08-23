@@ -43,5 +43,15 @@
     "name": "production deploy bypasses tests",
     "mutation": "bypassDeployChecks",
     "expectedCode": "AUTH_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production deploy masks validation failure",
+    "mutation": "maskDeployFailure",
+    "expectedCode": "AUTH_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "production dry-run deploys before validation",
+    "mutation": "deployBeforeValidation",
+    "expectedCode": "AUTH_DEPLOY_PIPELINE"
   }
 ]
