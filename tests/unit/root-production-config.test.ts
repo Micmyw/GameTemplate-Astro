@@ -158,6 +158,10 @@ const runFixture = async (name: string, mutation?: string) => {
     [join(fixtureRoot, "dist/sitemap-0.xml"), sitemap(["/", "/games/demo/"])],
     [join(fixtureRoot, "wrangler.jsonc"), '{ "name": "game-site" }\n'],
     [
+      join(fixtureRoot, "playwright.config.ts"),
+      "export default { webServer: { reuseExistingServer: false } };\n",
+    ],
+    [
       join(fixtureRoot, "package.json"),
       `${JSON.stringify(
         {
@@ -368,6 +372,16 @@ const runFixture = async (name: string, mutation?: string) => {
         null,
         2,
       )}\n`,
+    );
+  } else if (mutation === "e2eServerReuseTrue") {
+    files.set(
+      join(fixtureRoot, "playwright.config.ts"),
+      "export default { webServer: { reuseExistingServer: true } };\n",
+    );
+  } else if (mutation === "e2eServerReuseByCi") {
+    files.set(
+      join(fixtureRoot, "playwright.config.ts"),
+      "export default { webServer: { reuseExistingServer: !process.env.CI } };\n",
     );
   }
 

@@ -41,7 +41,7 @@ export default defineConfig({
   webServer: {
     command: `npx wrangler dev --local --ip ${host} --port ${port}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });

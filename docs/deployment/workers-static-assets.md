@@ -100,11 +100,20 @@ The wrapper is intentionally exact and cannot skip a failed step. It runs:
 7. the production configuration gate;
 8. `npx wrangler deploy --dry-run`.
 
+Release E2E always starts the current checkout's Wrangler Static Assets server
+at `http://127.0.0.1:4323`; `reuseExistingServer` is fixed to `false`. If port
+4323 is occupied, the run must fail instead of connecting to that process.
+Identify and stop the occupying task-owned preview and its recorded process
+tree, verify the port is closed, and rerun. Never kill an unrelated process or
+use an old preview as evidence for the current production build.
+
 The production gate rejects a missing, invalid, or placeholder site name;
 missing or placeholder public Origin variables; Origin collisions; mismatched
 built site identity/canonical/robots/Sitemap output; draft/Admin/404 Sitemap
 entries; an indexable `workers.dev` preview; public-site Decap; an advertising
 vendor; enabled-by-default ad slots; and a shortened deploy script.
+It also rejects any Playwright configuration that enables existing-server reuse
+directly or conditionally through the CI environment.
 
 During placeholder-only development, use `npm run verify:development-config`.
 It proves that the only accepted production-gate failures are the four committed

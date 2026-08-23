@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { load } from "cheerio";
+import ts from "typescript";
 
 import {
   formatProductionIssues,
@@ -171,6 +172,68 @@ const validateAdDefaults = async () => {
       ),
     ];
   }
+};
+
+const propertyName = (name) =>
+  ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined;
+
+const validateE2EServerIsolation = async () => {
+  const path = resolve(projectRoot, "playwright.config.ts");
+  let source;
+  try {
+    source = await readFile(path, "utf8");
+  } catch {
+    return [
+      issue(
+        "E2E_SERVER_REUSE",
+        "playwright.config.ts#webServer.reuseExistingServer",
+        "release E2E must define one local webServer with reuseExistingServer set to false",
+      ),
+    ];
+  }
+
+  const sourceFile = ts.createSourceFile(
+    path,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const webServers = [];
+  const visit = (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      propertyName(node.name) === "webServer"
+    ) {
+      webServers.push(node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+
+  const webServer = webServers[0];
+  const reuseProperties =
+    webServer && ts.isObjectLiteralExpression(webServer)
+      ? webServer.properties.filter(
+          (property) =>
+            ts.isPropertyAssignment(property) &&
+            propertyName(property.name) === "reuseExistingServer",
+        )
+      : [];
+  const deterministic =
+    webServers.length === 1 &&
+    reuseProperties.length === 1 &&
+    reuseProperties[0].initializer.kind === ts.SyntaxKind.FalseKeyword;
+
+  return deterministic
+    ? []
+    : [
+        issue(
+          "E2E_SERVER_REUSE",
+          "playwright.config.ts#webServer.reuseExistingServer",
+          "release E2E must define one local webServer with reuseExistingServer set to the literal false",
+        ),
+      ];
 };
 
 const listActualFiles = async (roots) => {
@@ -546,6 +609,7 @@ const validateRepositoryBoundary = async () => {
   issues.push(...(await validateRootDeployScripts()));
   issues.push(...(await validateWorkersPreviewHeaders()));
   issues.push(...(await validateAdDefaults()));
+  issues.push(...(await validateE2EServerIsolation()));
 
   return issues;
 };

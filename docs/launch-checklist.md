@@ -49,6 +49,8 @@ complete.
 - [ ] Header wordmark, titles, `og:site_name`, and homepage `WebSite` JSON-LD all use the exact normalized `PUBLIC_SITE_NAME`.
 - [ ] No indexable production HTML title or site-name metadata contains the `GameSite` development fallback.
 - [ ] Desktop/mobile Playwright passed with the game iframe request mocked.
+- [ ] Release Playwright started the current Wrangler Static Assets build on `127.0.0.1:4323` with `reuseExistingServer=false`; no old preview was reused.
+- [ ] Port 4323 was closed after E2E, including the complete recorded task-owned launcher/process tree; an unrelated process was not terminated.
 - [ ] Axe reported zero `serious` or `critical` violations on home, game, category, and 404 pages.
 - [ ] The production configuration gate passed with no placeholder exception.
 - [ ] Wrangler dry-run passed with the accepted `wrangler.jsonc`.

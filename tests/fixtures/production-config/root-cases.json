@@ -258,5 +258,15 @@
     "name": "production deploy calls a fake E2E target",
     "mutation": "fakeE2E",
     "expectedCode": "ROOT_DEPLOY_PIPELINE"
+  },
+  {
+    "name": "release E2E always reuses an existing server",
+    "mutation": "e2eServerReuseTrue",
+    "expectedCode": "E2E_SERVER_REUSE"
+  },
+  {
+    "name": "release E2E conditionally reuses a local server",
+    "mutation": "e2eServerReuseByCi",
+    "expectedCode": "E2E_SERVER_REUSE"
   }
 ]
