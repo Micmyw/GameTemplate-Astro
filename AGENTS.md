@@ -9,5 +9,5 @@ This project uses Node.js 24, npm, Astro's default static output, strict TypeScr
 - Implement one planned PR only. Do not begin the next PR before the current PR is independently accepted and merged.
 - Follow Red → Green → Refactor for new production behavior and keep each task in a focused commit.
 - Run every verification command required by the current PR again immediately before claiming success; do not reuse earlier output.
-- Never merge the branch. Push it and open a Draft PR for review.
+- After independent acceptance and explicit user authorization, Codex may mark the PR ready and merge it using a merge commit.
 - Stop after reporting the Draft PR URL, base and head SHAs, commits, changed files, fresh verification evidence, deviations, known issues, and required manual configuration.
