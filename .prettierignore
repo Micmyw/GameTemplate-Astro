@@ -1,3 +1,5 @@
 docs/superpowers/**/*.md
 **/.wrangler/**
 apps/cms-auth/worker-configuration.d.ts
+docs/review/evidence/**/*.html
+docs/review/evidence/**/*.json

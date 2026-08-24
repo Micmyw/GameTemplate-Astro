@@ -1,6 +1,7 @@
 ---
 import type { CollectionEntry } from "astro:content";
 
+import AdSlot from "../../components/ads/AdSlot.astro";
 import GameCard from "../../components/games/GameCard.astro";
 import JsonLd from "../../components/seo/JsonLd.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -87,5 +88,6 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
         ))
       }
     </div>
+    <AdSlot slot="category-after-grid" />
   </section>
 </BaseLayout>

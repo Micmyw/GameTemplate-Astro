@@ -1,0 +1,38 @@
+---
+import { isAdSlotEnabled, type AdSlotId } from "../../config/ads";
+
+type Props = {
+  slot: AdSlotId;
+};
+
+const { slot } = Astro.props;
+const enabled = isAdSlotEnabled(slot);
+---
+
+{
+  enabled && (
+    <aside class="ad-slot" data-ad-slot={slot} aria-label="Advertisement">
+      <span>Advertisement</span>
+    </aside>
+  )
+}
+
+<style>
+  .ad-slot {
+    display: grid;
+    min-height: 6rem;
+    place-items: center;
+    margin-block: clamp(2rem, 5vw, 4rem);
+    border: 1px dashed var(--color-line);
+    border-radius: 0.8rem;
+    color: var(--color-ink-soft);
+    background: var(--color-surface);
+  }
+
+  .ad-slot span {
+    font-family: var(--font-utility);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+</style>

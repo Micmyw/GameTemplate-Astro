@@ -1,4 +1,5 @@
 ---
+import AdSlot from "../components/ads/AdSlot.astro";
 import GameCard from "../components/games/GameCard.astro";
 import JsonLd from "../components/seo/JsonLd.astro";
 import { SITE } from "../config/site";
@@ -72,6 +73,7 @@ const featuredGamesJsonLd = buildItemListJsonLd(
         ))
       }
     </div>
+    <AdSlot slot="home-after-featured" />
   </section>
 
   <section class="shell home-section" aria-labelledby="latest-heading">

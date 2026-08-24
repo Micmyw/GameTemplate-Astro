@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Check formatting
         run: npm run format:check
 
@@ -45,6 +48,20 @@ jobs:
 
       - name: Verify development placeholders hide no configuration drift
         run: npm run verify:development-config
+
+      - name: Run browser and accessibility tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            output/playwright/report
+            output/playwright/test-results
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Validate the deployment bundle
         run: npx wrangler deploy --dry-run
